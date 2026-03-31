@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>one23 — match + WebSocket test</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 640px; margin: 2rem auto; padding: 0 1rem; }
+    label { display: block; margin-top: 0.75rem; font-weight: 600; }
+    input { width: 100%; padding: 0.5rem; box-sizing: border-box; margin-top: 0.25rem; }
+    button { margin-top: 1rem; padding: 0.5rem 1rem; cursor: pointer; }
+    #log { background: #111; color: #0f0; padding: 1rem; margin-top: 1rem; min-height: 140px; white-space: pre-wrap; font-size: 0.85rem; }
+    .hint { color: #555; font-size: 0.9rem; margin-top: 0.5rem; }
+    .warn { background: #2a1f00; color: #fc6; padding: 0.75rem; margin: 1rem 0; font-size: 0.9rem; border-radius: 6px; }
+  </style>
+</head>
+<body>
+  <h1>Day 4 test</h1>
+  <p class="hint">Open at <code>http://localhost:8080/match-test.html</code> (same origin as the API).</p>
+
+  <div class="warn">
+    <strong>DB vs memory:</strong> Deleting rows in Supabase does <strong>not</strong> clear the Java in-memory lobby.
+    After you clean the table, <strong>restart Spring Boot</strong> so matching starts fresh.
+    Every click “POST /api/join” <strong>inserts a new row</strong> — new <code>id</code> values are normal.
+  </div>
+
+  <h2>1. WebSocket</h2>
+  <button type="button" id="btnConnect">Connect to <code>/ws</code> &amp; subscribe <code>/topic/match</code></button>
+  <button type="button" id="btnDisconnect" disabled>Disconnect</button>
+  <p class="hint"><strong>[WS]</strong> lines = real-time match broadcast (JSON <strong>array</strong> of riders).<br />
+    <strong>[HTTP]</strong> lines = REST response (one JSON <strong>object</strong> for this join only).</p>
+
+  <h2>2. Join</h2>
+  <form id="joinForm">
+    <label>Name <input name="name" value="Alice" required /></label>
+    <label>Pickup hub <input name="pickupHub" value="Kadugodi" required /></label>
+    <label>Destination <input name="destination" value="Tech Park" required /></label>
+    <button type="submit">POST /api/join</button>
+  </form>
+
+  <h2>Log</h2>
+  <div id="log"></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/sockjs-client@1/dist/sockjs.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/stomp.js/2.3.3/stomp.min.js"></script>
+  <script>
+    const logEl = document.getElementById('log');
+    function log(prefix, line) {
+      logEl.textContent += new Date().toISOString() + ' ' + prefix + ' ' + line + '\n';
+    }
+
+    let stompClient = null;
+
+    document.getElementById('btnConnect').onclick = () => {
+      const socket = new SockJS('/ws');
+      stompClient = Stomp.over(socket);
+      stompClient.debug = () => {};
+      stompClient.connect({}, () => {
+        log('[WS]', 'STOMP connected');
+        stompClient.subscribe('/topic/match', (message) => {
+          log('[WS]', '/topic/match ← ' + message.body);
+        });
+        document.getElementById('btnConnect').disabled = true;
+        document.getElementById('btnDisconnect').disabled = false;
+      }, (err) => log('[WS]', 'STOMP error: ' + err));
+    };
+
+    document.getElementById('btnDisconnect').onclick = () => {
+      if (stompClient) stompClient.disconnect(() => log('[WS]', 'disconnected'));
+      document.getElementById('btnConnect').disabled = false;
+      document.getElementById('btnDisconnect').disabled = true;
+      stompClient = null;
+    };
+
+    document.getElementById('joinForm').onsubmit = async (e) => {
+      e.preventDefault();
+      const fd = new FormData(e.target);
+      const body = Object.fromEntries(fd.entries());
+      const res = await fetch('/api/join', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      const text = await res.text();
+      let pretty = text;
+      try {
+        pretty = JSON.stringify(JSON.parse(text), null, 0);
+      } catch (_) {}
+      log('[HTTP]', 'POST /api/join → ' + res.status + ' ' + pretty);
+    };
+  </script>
+</body>
+</html>
