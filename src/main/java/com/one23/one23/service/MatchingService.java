@@ -1,61 +1,67 @@
 package com.one23.one23.service;
 
 import com.one23.one23.model.RideRequest;
+import com.one23.one23.repository.RideRequestRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
-import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
-import java.time.LocalDateTime;
+
 import java.util.*;
 
 @Service
 public class MatchingService {
 
-    private final Map<String, List<RideRequest>> lobbyMap = new HashMap<>();
+    private final Map<String, List<RideRequest>> lobby = new HashMap<>();
 
     @Autowired
     private SimpMessagingTemplate messagingTemplate;
 
-    private static boolean isExpired(RideRequest user) {
-        return user.getCreatedAt() != null &&
-                user.getCreatedAt().isBefore(LocalDateTime.now().minusMinutes(5));
-    }
+    @Autowired
+    private RideRequestRepository repo;
 
-    /**
-     * Auto-delete old users from memory.
-     * Runs every 1 minute and removes users older than 5 minutes.
-     */
-    @Scheduled(fixedRate = 60_000)
-    public void cleanupOldUsers() {
-        lobbyMap.entrySet().removeIf(entry -> {
-            List<RideRequest> users = entry.getValue();
-            users.removeIf(MatchingService::isExpired);
-            return users.isEmpty();
-        });
-    }
+    public void addAndMatch(RideRequest request) {
 
-    public List<RideRequest> addAndMatch(RideRequest request) {
+        String pickupHub = request.getPickupHub();
+        String destination = request.getDestination();
 
-        String key = request.getPickupHub() + "_" + request.getDestination();
-
-        List<RideRequest> users = lobbyMap.getOrDefault(key, new ArrayList<>());
-        users.removeIf(MatchingService::isExpired);
-        users.add(request);
-
-        lobbyMap.put(key, users);
-
-        // Match found
-        if (users.size() >= 2) {
-
-            // Notify subscribers via WebSocket (STOMP topic /topic/match)
-            messagingTemplate.convertAndSend("/topic/match", users);
-
-            // Clear lobby after match so the next pair starts fresh on this route
-            lobbyMap.remove(key);
-
-            return users;
+        if (pickupHub == null || destination == null) {
+            throw new RuntimeException("pickupHub and destination are required");
         }
 
-        return Collections.emptyList();
+        String key = pickupHub.toLowerCase().trim()
+                + "_"
+                + destination.toLowerCase().trim();
+
+        lobby.putIfAbsent(key, new ArrayList<>());
+
+        List<RideRequest> users = lobby.get(key);
+
+        users.add(request);
+
+        if (users.size() >= 3) {
+
+            String groupId = UUID.randomUUID().toString();
+
+            int groupSize = Math.min(users.size(), 3);
+
+            List<RideRequest> group = new ArrayList<>(users.subList(0, groupSize));
+
+            for (RideRequest user : group) {
+                user.setStatus("MATCHED");
+                user.setGroupId(groupId);
+            }
+
+            repo.saveAll(group);
+
+            messagingTemplate.convertAndSend("/topic/match", group);
+
+            users.subList(0, groupSize).clear();
+
+            if (users.isEmpty()) {
+                lobby.remove(key);
+            }
+
+            System.out.println("Group created: " + groupId);
+        }
     }
 }

@@ -19,11 +19,14 @@ public class TestController {
 
     @PostMapping("/join")
     public RideRequest createRide(@RequestBody RideRequest rideRequest) {
-        if (rideRequest.getCreatedAt() == null) {
+      
             rideRequest.setCreatedAt(LocalDateTime.now());
-        }
+            rideRequest.setStatus("WAITING");
+            rideRequest.setGroupId(null);
+        
         RideRequest saved = repo.save(rideRequest);
         matchingService.addAndMatch(saved);
         return saved;
     }
 }
+

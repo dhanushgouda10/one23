@@ -13,20 +13,16 @@ public class RideRequest {
     private String name;
 
     /** Pickup hub — stored in DB column {@code location} from earlier days. */
-    @Column(name = "location")
-    @JsonAlias("location")
+    @Column(name = "pickup_hub")
+    @JsonAlias({"location","pickupHub"})
     private String pickupHub;
 
     private String destination;
     private LocalDateTime createdAt;
 
-    public LocalDateTime getCreatedAt() {
-        return createdAt;
-    }
+    private String groupId;
+    private String status;
 
-    public void setCreatedAt(LocalDateTime createdAt) {
-        this.createdAt = createdAt;
-    }
 
     public RideRequest() {
     }
@@ -62,4 +58,33 @@ public class RideRequest {
     public void setDestination(String destination) {
         this.destination = destination;
     }
+
+
+    public LocalDateTime getCreatedAt() {
+        return createdAt;
+    }
+
+    public void setCreatedAt(LocalDateTime createdAt) {
+        this.createdAt = createdAt;
+    }
+
+    public String getGroupId(){
+        return groupId;
+
+    }
+
+     public void setGroupId( String groupId ) {
+        this.groupId = groupId;
+    }
+    
+      public String  getStatus(){
+        return status;
+
+    }
+
+     public void setStatus( String status ) {
+        this.status = status;
+    }
+
+
 }
