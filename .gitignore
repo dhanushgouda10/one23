@@ -8,6 +8,9 @@ target/
 src/main/resources/application.properties
 .env
 .env.*
+target/
+node_modules/
+.DS_Store
 
 ### STS ###
 .apt_generated
