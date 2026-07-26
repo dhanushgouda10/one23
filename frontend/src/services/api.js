@@ -1,16 +1,18 @@
 import axios from "axios";
+import { API_BASE_URL } from "../config/env";
 
 /**
  * API Configuration
  *
- * Base URL: http://localhost:8080
+ * Base URL comes from VITE_API_URL (see .env.example), falling back to
+ * http://localhost:8080 for local development.
  *
  * - Attaches JWT token from sessionStorage to protected requests
  * - Keeps all backend calls in one place
  */
 
 const api = axios.create({
-  baseURL: "http://localhost:8080"
+  baseURL: API_BASE_URL
 });
 
 // Attach Bearer token automatically for protected routes

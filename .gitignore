@@ -1,15 +1,28 @@
-HELP.md
+# Backend
+backend/target/
 target/
-.mvn/wrapper/maven-wrapper.jar
-!**/src/main/**/target/
-!**/src/test/**/target/
+backend/.mvn/wrapper/maven-wrapper.jar
+!backend/src/main/**/target/
+!backend/src/test/**/target/
 
+# Frontend
+frontend/node_modules/
+frontend/node/
+frontend/dist/
 
+# Environment
 .env
 .env.*
-target/
-node_modules/
+backend/.env
+backend/.env.*
+frontend/.env
+frontend/.env.*
+
+!.env.example
+
+# OS
 .DS_Store
+*.log
 
 ### STS ###
 .apt_generated
@@ -25,6 +38,7 @@ node_modules/
 *.iws
 *.iml
 *.ipr
+.idea/
 
 ### NetBeans ###
 /nbproject/private/

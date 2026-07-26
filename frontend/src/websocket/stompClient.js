@@ -1,8 +1,7 @@
 import { Client } from "@stomp/stompjs";
 import SockJS from "sockjs-client";
-
 // Connect directly to backend (CORS enabled) — more reliable than Vite proxy for SockJS
-const WS_URL = "http://localhost:8080/ws";
+import { WS_URL } from "../config/env";
 
 export const createMatchClient = ({ onMatch, onError, onConnect }) => {
   const client = new Client({

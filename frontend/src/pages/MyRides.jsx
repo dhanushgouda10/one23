@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import Navbar from "../components/Navbar";
 import { getMyRides, cancelRide } from "../services/api";
 import { createMatchClient } from "../websocket/stompClient";
@@ -19,9 +19,13 @@ import { createMatchClient } from "../websocket/stompClient";
  */
 function MyRides() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [rides, setRides] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  // Shows a brief toast when we land here because a group was dissolved
+  // (see GroupLobby.jsx) — cleared automatically after a couple seconds.
+  const [toastMessage, setToastMessage] = useState(location.state?.message || "");
   // Tracks which ride is currently being cancelled so we can disable just
   // that button (and show "Cancelling...") instead of the whole page —
   // this also stops a fast double-click from firing the cancel twice.
@@ -127,6 +131,21 @@ function MyRides() {
     };
   }, []);
 
+  // Auto-hide the toast after a couple seconds
+  useEffect(() => {
+    if (!toastMessage) {
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      setToastMessage("");
+    }, 2500);
+
+    return () => {
+      clearTimeout(timer);
+    };
+  }, [toastMessage]);
+
   const handleCancelRide = async (rideId) => {
     if (cancellingId) {
       // A cancel request is already in flight — ignore extra clicks.
@@ -179,6 +198,18 @@ function MyRides() {
     <div className="page-container map-grid-bg">
       <div className="bg-glow bg-glow--left" />
       <div className="bg-glow bg-glow--right" />
+
+      {toastMessage && (
+        <div className="toast-overlay" role="alert" aria-live="polite">
+          <div className="toast-card">
+            <div className="toast-icon">ℹ</div>
+            <div>
+              <h3>Group Update</h3>
+              <p>{toastMessage}</p>
+            </div>
+          </div>
+        </div>
+      )}
 
       <Navbar />
 

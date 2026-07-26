@@ -3,14 +3,16 @@ import SockJS from "sockjs-client";
 import { WS_URL } from "../config/env";
 
 function getToken() {
-  // Auth only ever writes the token to sessionStorage (see Login.jsx), so
-  // this is the single source of truth — keeps each browser tab's session
-  // independent instead of ever picking up another tab's leftover token.
+  // Auth only ever writes the token to sessionStorage (see Login.jsx),
+  // so this is the single source of truth — keeps two tabs logged in as
+  // two different accounts from ever mixing up.
   return sessionStorage.getItem("token");
 }
 
-// Connect to group chat WebSocket
-export const createChatClient = ({ groupId, onMessage, onError, onConnect }) => {
+// Connect to group status WebSocket.
+// Used so a Group Lobby page finds out right away when its group is
+// dissolved (a member left) instead of only noticing on next refresh.
+export const createGroupClient = ({ groupId, onGroupEvent, onError, onConnect }) => {
   const token = getToken();
 
   const client = new Client({
@@ -27,13 +29,13 @@ export const createChatClient = ({ groupId, onMessage, onError, onConnect }) => 
     onConnect: () => {
       onConnect?.();
 
-      // Listen for new messages in this group
-      client.subscribe(`/topic/chat/${groupId}`, (message) => {
+      // Listen for status events (e.g. group dissolved) for this group
+      client.subscribe(`/topic/group/${groupId}`, (message) => {
         try {
-          const parsedMessage = JSON.parse(message.body);
-          onMessage?.(parsedMessage);
+          const event = JSON.parse(message.body);
+          onGroupEvent?.(event);
         } catch (error) {
-          onError?.("Could not parse chat message.");
+          onError?.("Could not parse group update.");
         }
       });
     },
@@ -50,20 +52,4 @@ export const createChatClient = ({ groupId, onMessage, onError, onConnect }) => 
   });
 
   return client;
-};
-
-// Send message to backend through WebSocket
-export const sendChatMessage = (client, groupId, messageText) => {
-  if (!client || !client.connected) {
-    return false;
-  }
-
-  client.publish({
-    destination: `/app/chat/${groupId}`,
-    body: JSON.stringify({
-      message: messageText.trim()
-    })
-  });
-
-  return true;
 };

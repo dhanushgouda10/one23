@@ -1,7 +1,6 @@
 import { Client } from "@stomp/stompjs";
 import SockJS from "sockjs-client";
-
-const WS_URL = "http://localhost:8080/ws";
+import { WS_URL } from "../config/env";
 
 function getToken() {
   // Auth only ever writes the token to sessionStorage (see Login.jsx),

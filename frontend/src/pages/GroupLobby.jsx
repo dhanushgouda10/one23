@@ -4,6 +4,7 @@ import Navbar from "../components/Navbar";
 import { getChatHistory, getGroupDetails, startRide, endRide, cancelGroup } from "../services/api";
 import { createChatClient, sendChatMessage } from "../websocket/chatClient";
 import { createLocationClient, sendLocationUpdate } from "../websocket/locationClient";
+import { createGroupClient } from "../websocket/groupClient";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import "../styles/chat.css";
@@ -50,6 +51,7 @@ function GroupLobby() {
 
   const chatClientRef = useRef(null);
   const locationClientRef = useRef(null);
+  const groupClientRef = useRef(null);
   const messagesEndRef = useRef(null);
   const mapRef = useRef(null);
   const mapInstanceRef = useRef(null);
@@ -146,6 +148,38 @@ function GroupLobby() {
       }
     };
   }, [groupId, loading]);
+
+  // Listen for the group being dissolved (another member left before the
+  // ride started). When that happens this group no longer exists, so send
+  // everyone still here back to My Rides — from there they'll be
+  // auto-matched into a new group lobby once a replacement rider joins.
+  useEffect(() => {
+    if (!groupId || loading) {
+      return;
+    }
+
+    const client = createGroupClient({
+      groupId,
+      onGroupEvent: (event) => {
+        if (event?.type === "DISSOLVED") {
+          navigate("/my-rides", {
+            replace: true,
+            state: { message: event.message || "Your group was dissolved. You're back in the waiting queue." }
+          });
+        }
+      }
+    });
+
+    groupClientRef.current = client;
+    client.activate();
+
+    return () => {
+      if (groupClientRef.current) {
+        groupClientRef.current.deactivate();
+        groupClientRef.current = null;
+      }
+    };
+  }, [groupId, loading, navigate]);
 
   // Auto scroll to latest message
   useEffect(() => {
