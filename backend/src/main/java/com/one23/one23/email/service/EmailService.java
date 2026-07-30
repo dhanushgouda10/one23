@@ -14,7 +14,7 @@ import org.springframework.stereotype.Service;
 
 /**
  * Sends the "Welcome to One23" email after a user signs up.
- *
+ 
  * Uses Spring's JavaMailSender, which Spring Boot auto-configures for us
  * from the `spring.mail.*` properties in application.properties (see that
  * file for Gmail SMTP setup). To switch providers later (Outlook, Mailtrap,
