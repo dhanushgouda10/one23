@@ -1,8 +1,11 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import Navbar from "../components/Navbar";
+import AppShell from "../components/AppShell";
+import Icon from "../components/Icon";
 import { getMyRides, cancelRide } from "../services/api";
 import { createMatchClient } from "../websocket/stompClient";
+
+const ACTIVE_STATUSES = ["WAITING", "MATCHED", "IN_PROGRESS"];
 
 /**
  * My Rides Page
@@ -23,6 +26,7 @@ function MyRides() {
   const [rides, setRides] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [tab, setTab] = useState("active");
   // Shows a brief toast when we land here because a group was dissolved
   // (see GroupLobby.jsx) — cleared automatically after a couple seconds.
   const [toastMessage, setToastMessage] = useState(location.state?.message || "");
@@ -179,30 +183,38 @@ function MyRides() {
 
   const getStatusColor = (status) => {
     switch (status) {
-      case "WAITING":
-        return "status-waiting";
-      case "MATCHED":
-        return "status-matched";
-      case "CANCELLED":
-        return "status-cancelled";
-      case "IN_PROGRESS":
-        return "status-in_progress";
-      case "COMPLETED":
-        return "status-completed";
-      default:
-        return "status-default";
+      case "WAITING": return "status-waiting";
+      case "MATCHED": return "status-matched";
+      case "CANCELLED": return "status-cancelled";
+      case "IN_PROGRESS": return "status-in_progress";
+      case "COMPLETED": return "status-completed";
+      default: return "status-default";
     }
   };
 
-  return (
-    <div className="page-container map-grid-bg">
-      <div className="bg-glow bg-glow--left" />
-      <div className="bg-glow bg-glow--right" />
+  const { activeRides, pastRides } = useMemo(() => {
+    const active = [];
+    const past = [];
+    rides.forEach((ride) => {
+      if (ACTIVE_STATUSES.includes(ride.status)) {
+        active.push(ride);
+      } else {
+        past.push(ride);
+      }
+    });
+    return { activeRides: active, pastRides: past };
+  }, [rides]);
 
+  const visibleRides = tab === "active" ? activeRides : pastRides;
+
+  return (
+    <AppShell title="My Rides" onBack={() => navigate("/dashboard")}>
       {toastMessage && (
         <div className="toast-overlay" role="alert" aria-live="polite">
           <div className="toast-card">
-            <div className="toast-icon">ℹ</div>
+            <div className="toast-icon">
+              <Icon name="bell" size={15} strokeWidth={2} />
+            </div>
             <div>
               <h3>Group Update</h3>
               <p>{toastMessage}</p>
@@ -211,83 +223,125 @@ function MyRides() {
         </div>
       )}
 
-      <Navbar />
+      <div className="app-content animate-in">
+        <div className="page-header-row">
+          <div>
+            <h1 className="page-title">My Rides</h1>
+            <p className="page-lede">Track your ride requests and matched groups.</p>
+          </div>
 
-      <div className="page-header">
-        <button className="btn-back" onClick={() => navigate("/dashboard")}>
-          ← Back
-        </button>
-      </div>
-
-      <div className="rides-container">
-        <h1 className="form-title" style={{ color: "var(--text-inverse)" }}>My Rides</h1>
-        <p className="form-subtitle">Track your ride requests and matched groups.</p>
-
-        {error && <div className="error-message">{error}</div>}
-
-        {loading ? (
-          <div className="loading">Loading rides...</div>
-        ) : rides.length === 0 ? (
-          <div className="empty-state">
-            <p>No rides found. Join a ride to get started!</p>
-            <button className="btn-primary" onClick={() => navigate("/join")}>
-              Join a Ride
+          <div className="segmented segmented--dark">
+            <button
+              type="button"
+              className={`segmented__btn ${tab === "active" ? "active" : ""}`}
+              onClick={() => setTab("active")}
+            >
+              Active ({activeRides.length})
+            </button>
+            <button
+              type="button"
+              className={`segmented__btn ${tab === "past" ? "active" : ""}`}
+              onClick={() => setTab("past")}
+            >
+              Past ({pastRides.length})
             </button>
           </div>
+        </div>
+
+        {error && <div className="error-message--dark">{error}</div>}
+
+        {loading ? (
+          <div className="loading">
+            <span className="btn-spinner btn-spinner--muted" />
+            Loading rides...
+          </div>
+        ) : visibleRides.length === 0 ? (
+          <div className="empty-state">
+            <div className="empty-state__icon">
+              <Icon name="car" size={26} strokeWidth={1.7} />
+            </div>
+            <p>
+              {tab === "active"
+                ? "No active rides. Join a ride to get started!"
+                : "No past rides yet."}
+            </p>
+            {tab === "active" && (
+              <button className="btn-primary" onClick={() => navigate("/join")}>
+                Join a Ride
+              </button>
+            )}
+          </div>
         ) : (
-          <div className="rides-list">
-            {rides.map((ride) => {
+          <div className="ticket-list">
+            {visibleRides.map((ride) => {
               const clickable = ride.status === "MATCHED" && ride.groupId;
               return (
                 <div
                   key={ride.id}
-                  className="ride-card"
+                  className={`ticket-card ${clickable ? "ticket-card--clickable" : ""}`}
                   onClick={clickable ? () => navigate(`/group-lobby/${ride.groupId}`) : undefined}
-                  style={clickable ? { cursor: "pointer" } : undefined}
+                  role={clickable ? "button" : undefined}
+                  tabIndex={clickable ? 0 : undefined}
+                  onKeyDown={
+                    clickable
+                      ? (e) => {
+                          if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault();
+                            navigate(`/group-lobby/${ride.groupId}`);
+                          }
+                        }
+                      : undefined
+                  }
                 >
-                  <div className="ride-header">
-                    <h3 className="ride-destination">
-                      {ride.pickupHub} → {ride.destination}
-                    </h3>
-                    <span className={`status-badge ${getStatusColor(ride.status)}`}>
-                      {ride.status}
-                    </span>
+                  <div className="ticket-card__icon">
+                    <Icon name="car" size={22} strokeWidth={1.9} />
                   </div>
 
-                  <div className="ride-details">
-                    <div className="ride-detail">
-                      <span className="detail-label">Pickup Hub</span>
-                      <span className="detail-value">{ride.pickupHub}</span>
+                  <div className="ticket-card__body">
+                    <div className="ticket-card__top">
+                      <span className="ticket-card__route">
+                        {ride.pickupHub} → {ride.destination}
+                      </span>
+                      <span className={`status-badge ${getStatusColor(ride.status)}`}>
+                        {ride.status}
+                      </span>
                     </div>
-                    <div className="ride-detail">
-                      <span className="detail-label">Destination</span>
-                      <span className="detail-value">{ride.destination}</span>
+
+                    <div className="ticket-card__meta">
+                      <span><strong>{ride.pickupHub}</strong> pickup</span>
+                      <span><strong>{ride.destination}</strong> destination</span>
+                      <span>Requested {formatDate(ride.createdAt)}</span>
                     </div>
-                    <div className="ride-detail">
-                      <span className="detail-label">Created</span>
-                      <span className="detail-value">{formatDate(ride.createdAt)}</span>
+
+                    <div className="ticket-card__actions">
+                      {clickable && (
+                        <span className="tile-go">
+                          Open group lobby
+                          <Icon name="chevronRight" size={15} strokeWidth={2.2} />
+                        </span>
+                      )}
+
+                      {ride.status === "WAITING" && (
+                        <button
+                          className="btn-cancel"
+                          disabled={cancellingId === ride.id}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleCancelRide(ride.id);
+                          }}
+                        >
+                          {cancellingId === ride.id ? "Cancelling..." : "Cancel Ride"}
+                        </button>
+                      )}
                     </div>
                   </div>
-
-                  {ride.status === "WAITING" && (
-                    <button
-                      className="btn-cancel"
-                      disabled={cancellingId === ride.id}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleCancelRide(ride.id);
-                      }}
-                    >
-                      {cancellingId === ride.id ? "Cancelling..." : "Cancel Ride"}
-                    </button>
-                  )}
                 </div>
               );
             })}
           </div>
         )}
       </div>
-    </div>
+    </AppShell>
   );
 }
 

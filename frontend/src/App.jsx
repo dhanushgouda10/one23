@@ -27,7 +27,12 @@ function ProtectedRoute({ children }) {
 
 function App() {
   return (
-    <Suspense fallback={<div className="page-loading">Loading...</div>}>
+    <Suspense fallback={
+      <div className="page-loading">
+        <div className="page-loading__logo">23</div>
+        <div className="page-loading__bar" />
+      </div>
+    }>
       <Routes>
         {/* Public Routes */}
         <Route path="/" element={<Home />} />

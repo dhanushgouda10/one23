@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { signup } from "../services/api";
+import Icon from "../components/Icon";
 
 /**
  * Signup Page
@@ -108,23 +109,54 @@ function Signup() {
   };
 
   return (
-    <div className="auth-container map-grid-bg">
-      <div className="bg-glow bg-glow--left" />
-      <div className="bg-glow bg-glow--right" />
+    <div className="split-auth">
+      <div className="split-auth__brand">
+        <div className="split-auth__brand-photo" aria-hidden="true" />
+        <div className="split-auth__brand-overlay" aria-hidden="true" />
+        <div className="split-auth__glow" />
+        <div className="split-auth__brandmark">
+          <span className="split-auth__logomark">23</span>
+          one23
+        </div>
+        <div className="split-auth__copy">
+          <h1>
+            Split the ride, <span>not the hassle.</span>
+          </h1>
+          <p>
+            Create an account to get matched into a group of three the moment
+            two other riders share your hub and destination.
+          </p>
+          <div className="split-auth__stats">
+            <div className="tile-stat">
+              <strong>Groups</strong>
+              <span>of exactly 3 riders</span>
+            </div>
+            <div className="tile-stat">
+              <strong>Instant</strong>
+              <span>hub-based matching</span>
+            </div>
+            <div className="tile-stat">
+              <strong>Live</strong>
+              <span>location &amp; chat</span>
+            </div>
+          </div>
+        </div>
+      </div>
 
-      <div style={{ position: "relative", zIndex: 1, display: "flex", flexDirection: "column", alignItems: "center" }}>
-        <Link to="/" className="auth-back-home">
-          ← Back to one23
-        </Link>
+      <div className="split-auth__panel">
+        <div className="split-auth__form-wrap">
+          <Link to="/" className="split-auth__back">
+            <Icon name="arrowLeft" size={14} strokeWidth={2.2} />
+            Back to one23
+          </Link>
 
-        <div className="auth-card">
           <h1 className="auth-title">Create your account</h1>
           <h2 className="auth-subtitle">Join a hub and get matched in minutes</h2>
 
           {error && <div className="error-message">{error}</div>}
 
           <form onSubmit={handleSubmit} className="auth-form">
-            <div className="form-group">
+            <div className="field-group">
               <label htmlFor="fullName">Full Name</label>
               <input
                 type="text"
@@ -139,7 +171,7 @@ function Signup() {
               {fieldErrors.fullName && <small className="form-hint form-hint-error">{fieldErrors.fullName}</small>}
             </div>
 
-            <div className="form-group">
+            <div className="field-group">
               <label htmlFor="email">Email</label>
               <input
                 type="email"
@@ -154,7 +186,7 @@ function Signup() {
               {fieldErrors.email && <small className="form-hint form-hint-error">{fieldErrors.email}</small>}
             </div>
 
-            <div className="form-group">
+            <div className="field-group">
               <label htmlFor="password">Password</label>
               <input
                 type="password"

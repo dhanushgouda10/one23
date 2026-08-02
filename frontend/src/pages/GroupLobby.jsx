@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
-import Navbar from "../components/Navbar";
+import AppShell from "../components/AppShell";
+import Icon from "../components/Icon";
 import { getChatHistory, getGroupDetails, startRide, endRide, cancelGroup } from "../services/api";
 import { createChatClient, sendChatMessage } from "../websocket/chatClient";
 import { createLocationClient, sendLocationUpdate } from "../websocket/locationClient";
@@ -35,6 +36,24 @@ function formatTime(timestamp) {
   });
 }
 
+const STATUS_LABEL = {
+  MATCHED: "Ride Matched",
+  IN_PROGRESS: "Ride In Progress",
+  COMPLETED: "Ride Completed"
+};
+
+// Leaflet markers are plain HTML strings, not real DOM/CSS-styled
+// elements, so they can't pick up `var(--accent)` etc. the way the rest
+// of the UI does. Reading the custom properties off the root at the
+// moment a marker is drawn means the map always matches the current
+// theme instead of a color hardcoded back when the palette was lime on
+// near-black.
+function themeColor(name, fallback) {
+  if (typeof window === "undefined") return fallback;
+  const value = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+  return value || fallback;
+}
+
 function GroupLobby() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -43,6 +62,7 @@ function GroupLobby() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [toastMessage, setToastMessage] = useState(location.state?.message || "");
+  const [sidePanelTab, setSidePanelTab] = useState("chat");
 
   const [chatMessages, setChatMessages] = useState([]);
   const [messageInput, setMessageInput] = useState("");
@@ -205,7 +225,7 @@ function GroupLobby() {
     // Add destination marker (using a fixed location for demo - in production you'd geocode the destination)
     const destinationIcon = L.divIcon({
       className: "custom-marker",
-      html: `<div style="background-color: green; width: 24px; height: 24px; border-radius: 50%; border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.3);"></div>`,
+      html: `<div style="background-color: ${themeColor("--success", "#35d07f")}; width: 24px; height: 24px; border-radius: 50%; border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.3);"></div>`,
       iconSize: [24, 24],
       iconAnchor: [12, 12]
     });
@@ -214,7 +234,7 @@ function GroupLobby() {
     const destMarker = L.marker([12.9716, 77.5946], { icon: destinationIcon })
       .addTo(map)
       .bindPopup(`<b>Destination</b><br>${groupData.destination || "Your destination"}`);
-    
+
     markersRef.current["destination"] = destMarker;
 
     return () => {
@@ -284,7 +304,9 @@ function GroupLobby() {
 
     // Create custom icon based on user
     const isCurrentUser = memberName === userName;
-    const iconColor = isCurrentUser ? "blue" : "red";
+    const iconColor = isCurrentUser
+      ? themeColor("--accent", "#a4f52a")
+      : themeColor("--violet", "#6b9e3d");
 
     const customIcon = L.divIcon({
       className: "custom-marker",
@@ -323,7 +345,7 @@ function GroupLobby() {
         // Send initial location
         const { latitude, longitude } = position.coords;
         const sent = sendLocationUpdate(locationClientRef.current, groupId, latitude, longitude);
-        
+
         if (!sent) {
           setLocationError("Failed to send location. Connection may be lost.");
           setSharingLocation(false);
@@ -480,26 +502,25 @@ function GroupLobby() {
 
   if (loading) {
     return (
-      <div className="page-container group-lobby-page map-grid-bg">
-        <Navbar />
-        <div className="group-lobby-wrap">
-          <div className="group-lobby-card group-lobby-card--loading">
+      <AppShell title="Group Lobby" onBack={() => navigate("/my-rides")} backLabel="Back to My Rides">
+        <div className="app-content animate-in">
+          <div className="loading">
+            <span className="btn-spinner btn-spinner--muted" />
             Loading group lobby...
           </div>
         </div>
-      </div>
+      </AppShell>
     );
   }
 
   return (
-    <div className="page-container group-lobby-page map-grid-bg">
-      <div className="bg-glow bg-glow--left" />
-      <div className="bg-glow bg-glow--right" />
-
+    <AppShell title="Group Lobby" onBack={() => navigate("/my-rides")} backLabel="Back to My Rides">
       {toastMessage && (
         <div className="toast-overlay" role="alert" aria-live="polite">
           <div className="toast-card">
-            <div className="toast-icon">✓</div>
+            <div className="toast-icon">
+              <Icon name="check" size={15} strokeWidth={2.4} />
+            </div>
             <div>
               <h3>Ride Matched</h3>
               <p>{toastMessage}</p>
@@ -508,204 +529,223 @@ function GroupLobby() {
         </div>
       )}
 
-      <Navbar />
+      <div className="app-content animate-in">
+        {error ? (
+          <div className="error-message--dark">{error}</div>
+        ) : (
+          <>
+            <div className="page-header-row">
+              <div>
+                <span className="pill-tag pill-tag--dark page-eyebrow">Group Lobby</span>
+                <h1 className="page-title">{STATUS_LABEL[rideStatus] || "Ride Matched"}</h1>
+                <p className="page-lede">
+                  {groupData?.pickupHub} → {groupData?.destination} · Group {groupData?.groupId}
+                </p>
+              </div>
+            </div>
 
-      <div className="page-header">
-        <button
-          className="btn-back"
-          onClick={() => navigate("/my-rides")}
-        >
-          ← Back to My Rides
-        </button>
-      </div>
+            {locationError && <div className="error-message--dark">{locationError}</div>}
 
-      <div className="group-lobby-wrap">
-        <section className="group-lobby-card">
-          <div className="group-lobby-heading">
-            <span className="pill-tag pill-tag--small">Group Lobby</span>
-            <h1>
-              {rideStatus === "IN_PROGRESS" ? "🚗 Ride In Progress" : 
-               rideStatus === "COMPLETED" ? "✅ Ride Completed" : 
-               "Ride Matched"}
-            </h1>
-            <p>Chat with your group members in real time.</p>
-          </div>
+            <div className="lobby-layout">
+              {/* Map panel */}
+              <div className="lobby-map-panel">
+                <div ref={mapRef} className="leaflet-map-el" />
 
-          {error ? (
-            <div className="error-message">{error}</div>
-          ) : (
-            <>
-              <div className="group-lobby-summary">
-                <div className="group-summary-item">
-                  <span className="label">Group ID</span>
-                  <p className="mono-text">{groupData?.groupId || "—"}</p>
-                </div>
-                <div className="group-summary-item">
-                  <span className="label">Pickup Hub</span>
-                  <p>{groupData?.pickupHub || "—"}</p>
-                </div>
-                <div className="group-summary-item">
-                  <span className="label">Destination</span>
-                  <p>{groupData?.destination || "—"}</p>
-                </div>
-                <div className="group-summary-item">
-                  <span className="label">Status</span>
-                  <span className={`status-badge status-${rideStatus?.toLowerCase() || "matched"}`}>
-                    {rideStatus || "MATCHED"}
+                <div className="lobby-map-panel__topbar">
+                  <span className="lobby-status-pill">
+                    <Icon name={rideStatus === "IN_PROGRESS" ? "car" : rideStatus === "COMPLETED" ? "check" : "map"} size={14} strokeWidth={2.2} />
+                    {STATUS_LABEL[rideStatus] || "Ride Matched"}
                   </span>
+                  <span className="lobby-status-pill">
+                    <Icon name="users" size={14} strokeWidth={2.2} />
+                    {membersOnlineCount} / {groupData?.members?.length || 0} online
+                  </span>
+                </div>
+
+                <div className="lobby-map-panel__bottom">
+                  <div className="lobby-member-dock">
+                    <div className="lobby-member-dock__avatars">
+                      {groupData?.members?.map((member, i) => (
+                        <span
+                          key={`${member.fullName}-${i}`}
+                          className={`lobby-member-dock__avatar ${memberLocations[member.fullName] ? "lobby-member-dock__avatar--online" : ""}`}
+                          title={member.fullName}
+                        >
+                          {getInitials(member.fullName)}
+                        </span>
+                      ))}
+                    </div>
+                    <div className="lobby-member-dock__meta">
+                      <strong>Your group</strong>
+                      <span>
+                        {sharingLocation ? "Sharing your location every 3s" : "Location not shared yet"}
+                      </span>
+                    </div>
+                    {!sharingLocation && rideStatus !== "COMPLETED" && (
+                      <button onClick={handleShareLocation} className="btn-secondary btn-secondary--sm">
+                        <Icon name="pin" size={14} strokeWidth={2.2} />
+                        Share
+                      </button>
+                    )}
+                  </div>
+
+                  {rideStatus === "MATCHED" && (
+                    <div className="lobby-actions-row">
+                      {allMembersSharingLocation() && (
+                        <button
+                          onClick={handleStartRide}
+                          disabled={startingRide || cancellingGroup}
+                          className="btn-primary"
+                        >
+                          {startingRide ? "Starting..." : (
+                            <>
+                              <Icon name="bolt" size={16} strokeWidth={2.2} />
+                              Start Ride
+                            </>
+                          )}
+                        </button>
+                      )}
+                      <button
+                        onClick={handleCancelGroup}
+                        disabled={cancellingGroup || startingRide}
+                        className="btn-cancel btn-cancel--on-dark"
+                      >
+                        {cancellingGroup ? "Cancelling..." : (
+                          <>
+                            <Icon name="close" size={15} strokeWidth={2.2} />
+                            Cancel Ride
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  )}
+
+                  {rideStatus === "IN_PROGRESS" && (
+                    <div className="lobby-actions-row">
+                      <button onClick={handleEndRide} disabled={endingRide} className="btn-primary">
+                        {endingRide ? "Ending..." : (
+                          <>
+                            <Icon name="check" size={16} strokeWidth={2.2} />
+                            End Ride
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
 
-              {/* Live Map Section */}
-              <div className="live-map-section">
-                <h2>Live Map</h2>
-                {locationError && <div className="error-message">{locationError}</div>}
-                
-                {!sharingLocation && rideStatus !== "COMPLETED" && (
-                  <button
-                    onClick={handleShareLocation}
-                    className="btn-share-location"
-                  >
-                    📍 Share My Location
-                  </button>
-                )}
-                
-                {sharingLocation && (
-                  <div className="location-sharing-indicator">
-                    <span className="pulse-dot"></span>
-                    Sharing location every 3 seconds
+              {/* Side panel — trip summary, roster, chat */}
+              <div className="lobby-side-panel">
+                <div className="lobby-trip-summary">
+                  <div>
+                    <span className="label">Group ID</span>
+                    <p className="mono-text">{groupData?.groupId || "—"}</p>
                   </div>
-                )}
-
-                <div 
-                  ref={mapRef} 
-                  className="leaflet-map"
-                  style={{ height: "300px", width: "100%", borderRadius: "8px", marginTop: "16px" }}
-                ></div>
-
-                {/* Ride Info Card */}
-                <div className="ride-info-card">
-                  <div className="info-card-item">
-                    <span className="info-label">Destination</span>
-                    <span className="info-value">{groupData?.destination || "—"}</span>
-                  </div>
-                  <div className="info-card-item">
-                    <span className="info-label">Ride Status</span>
-                    <span className={`info-value status-${rideStatus?.toLowerCase() || "matched"}`}>
+                  <div>
+                    <span className="label">Status</span>
+                    <span className={`status-badge status-${rideStatus?.toLowerCase() || "matched"}`}>
                       {rideStatus || "MATCHED"}
                     </span>
                   </div>
-                  <div className="info-card-item">
-                    <span className="info-label">Members Online</span>
-                    <span className="info-value">{membersOnlineCount} / {groupData?.members?.length || 0}</span>
+                  <div>
+                    <span className="label">Pickup Hub</span>
+                    <p>{groupData?.pickupHub || "—"}</p>
+                  </div>
+                  <div>
+                    <span className="label">Destination</span>
+                    <p>{groupData?.destination || "—"}</p>
                   </div>
                 </div>
 
-                {/* Ride Control Buttons */}
-                {rideStatus === "MATCHED" && (
-                  <div className="ride-control-buttons">
-                    {allMembersSharingLocation() && (
-                      <button
-                        onClick={handleStartRide}
-                        disabled={startingRide || cancellingGroup}
-                        className="btn-start-ride"
-                      >
-                        {startingRide ? "Starting..." : "🚀 Start Ride"}
-                      </button>
-                    )}
-
-                    <button
-                      onClick={handleCancelGroup}
-                      disabled={cancellingGroup || startingRide}
-                      className="btn-cancel"
-                    >
-                      {cancellingGroup ? "Cancelling..." : "✕ Cancel Ride"}
-                    </button>
-                  </div>
-                )}
-
-                {rideStatus === "IN_PROGRESS" && (
+                <div className="lobby-side-tabs">
                   <button
-                    onClick={handleEndRide}
-                    disabled={endingRide}
-                    className="btn-end-ride"
+                    className={`lobby-side-tab ${sidePanelTab === "chat" ? "active" : ""}`}
+                    onClick={() => setSidePanelTab("chat")}
                   >
-                    {endingRide ? "Ending..." : "🏁 End Ride"}
+                    Chat
                   </button>
-                )}
-              </div>
-
-              <div className="group-members">
-                <h2>Your Group</h2>
-                <div className="member-list">
-                  {groupData?.members?.map((member, index) => (
-                    <article key={`${member.fullName}-${index}`} className="member-card">
-                      <div className="member-avatar">{getInitials(member.fullName)}</div>
-                      <div className="member-details">
-                        <strong>{member.fullName}</strong>
-                        <span className="member-status">
-                          {memberLocations[member.fullName] ? "📍 Online" : member.rideStatus}
-                        </span>
-                      </div>
-                    </article>
-                  ))}
+                  <button
+                    className={`lobby-side-tab ${sidePanelTab === "members" ? "active" : ""}`}
+                    onClick={() => setSidePanelTab("members")}
+                  >
+                    Members ({groupData?.members?.length || 0})
+                  </button>
                 </div>
-              </div>
 
-              <div className="group-chat-section">
-                <h2>Group Chat</h2>
-
-                {chatError && <div className="error-message">{chatError}</div>}
-
-                <div className="chat-messages">
-                  {chatMessages.length === 0 ? (
-                    <div className="chat-empty">
-                      <p>No messages yet. Start the conversation!</p>
-                    </div>
-                  ) : (
-                    chatMessages.map((msg) => (
-                      <div
-                        key={msg.id || `${msg.senderName}-${msg.timestamp}`}
-                        className={`chat-message ${
-                          msg.senderName === userName ? "own-message" : "other-message"
-                        }`}
-                      >
-                        <div className="message-sender">
-                          <strong>{msg.senderName}</strong>
-                          <span className="message-time">
-                            {formatTime(msg.timestamp)}
+                {sidePanelTab === "members" ? (
+                  <div className="roster-list">
+                    {groupData?.members?.map((member, index) => (
+                      <div key={`${member.fullName}-${index}`} className="roster-row">
+                        <span className="roster-row__avatar">{getInitials(member.fullName)}</span>
+                        <div className="roster-row__info">
+                          <strong>{member.fullName}</strong>
+                          <span>
+                            {memberLocations[member.fullName] ? (
+                              <>
+                                <Icon name="pin" size={11} strokeWidth={2.4} />
+                                Online
+                              </>
+                            ) : (
+                              member.rideStatus
+                            )}
                           </span>
                         </div>
-                        <div className="message-text">{msg.message}</div>
                       </div>
-                    ))
-                  )}
-                  <div ref={messagesEndRef} />
-                </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="chat-panel">
+                    {chatError && <div className="error-message" style={{ margin: "12px 16px 0" }}>{chatError}</div>}
 
-                <form onSubmit={handleSendMessage} className="chat-input-form">
-                  <input
-                    type="text"
-                    placeholder="Type a message..."
-                    value={messageInput}
-                    onChange={(e) => setMessageInput(e.target.value)}
-                    disabled={sendingMessage}
-                    className="chat-input"
-                  />
-                  <button
-                    type="submit"
-                    disabled={sendingMessage || !messageInput.trim()}
-                    className="btn-send-message"
-                  >
-                    Send
-                  </button>
-                </form>
+                    <div className="chat-messages">
+                      {chatMessages.length === 0 ? (
+                        <div className="chat-empty">
+                          <p>No messages yet. Start the conversation!</p>
+                        </div>
+                      ) : (
+                        chatMessages.map((msg) => (
+                          <div
+                            key={msg.id || `${msg.senderName}-${msg.timestamp}`}
+                            className={`chat-message ${msg.senderName === userName ? "own-message" : "other-message"}`}
+                          >
+                            <div className="message-sender">
+                              <strong>{msg.senderName}</strong>
+                              <span className="message-time">{formatTime(msg.timestamp)}</span>
+                            </div>
+                            <div className="message-text">{msg.message}</div>
+                          </div>
+                        ))
+                      )}
+                      <div ref={messagesEndRef} />
+                    </div>
+
+                    <form onSubmit={handleSendMessage} className="chat-input-form">
+                      <input
+                        type="text"
+                        placeholder="Type a message..."
+                        value={messageInput}
+                        onChange={(e) => setMessageInput(e.target.value)}
+                        disabled={sendingMessage}
+                        className="chat-input"
+                      />
+                      <button
+                        type="submit"
+                        disabled={sendingMessage || !messageInput.trim()}
+                        className="btn-send-message"
+                        aria-label="Send message"
+                      >
+                        <Icon name="send" size={16} strokeWidth={2.2} />
+                      </button>
+                    </form>
+                  </div>
+                )}
               </div>
-            </>
-          )}
-        </section>
+            </div>
+          </>
+        )}
       </div>
-    </div>
+    </AppShell>
   );
 }
 

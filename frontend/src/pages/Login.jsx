@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { login } from "../services/api";
+import Icon from "../components/Icon";
 
 /**
  * Login Page
@@ -55,23 +56,54 @@ function Login() {
   };
 
   return (
-    <div className="auth-container map-grid-bg">
-      <div className="bg-glow bg-glow--left" />
-      <div className="bg-glow bg-glow--right" />
+    <div className="split-auth">
+      <div className="split-auth__brand">
+        <div className="split-auth__brand-photo" aria-hidden="true" />
+        <div className="split-auth__brand-overlay" aria-hidden="true" />
+        <div className="split-auth__glow" />
+        <div className="split-auth__brandmark">
+          <span className="split-auth__logomark">23</span>
+          one23
+        </div>
+        <div className="split-auth__copy">
+          <h1>
+            Welcome back to <span>quick-split</span> rides.
+          </h1>
+          <p>
+            Sign in to see your matched groups, chat with your riders, and
+            track your ride status live.
+          </p>
+          <div className="split-auth__stats">
+            <div className="tile-stat">
+              <strong>3</strong>
+              <span>Riders per group</span>
+            </div>
+            <div className="tile-stat">
+              <strong>Live</strong>
+              <span>Group chat &amp; map</span>
+            </div>
+            <div className="tile-stat">
+              <strong>Real-time</strong>
+              <span>Match notifications</span>
+            </div>
+          </div>
+        </div>
+      </div>
 
-      <div style={{ position: "relative", zIndex: 1, display: "flex", flexDirection: "column", alignItems: "center" }}>
-        <Link to="/" className="auth-back-home">
-          ← Back to one23
-        </Link>
+      <div className="split-auth__panel">
+        <div className="split-auth__form-wrap">
+          <Link to="/" className="split-auth__back">
+            <Icon name="arrowLeft" size={14} strokeWidth={2.2} />
+            Back to one23
+          </Link>
 
-        <div className="auth-card">
           <h1 className="auth-title">Welcome back</h1>
           <h2 className="auth-subtitle">Login to find your ride group</h2>
 
           {error && <div className="error-message">{error}</div>}
 
           <form onSubmit={handleSubmit} className="auth-form">
-            <div className="form-group">
+            <div className="field-group">
               <label htmlFor="email">Email</label>
               <input
                 type="email"
@@ -84,7 +116,7 @@ function Login() {
               />
             </div>
 
-            <div className="form-group">
+            <div className="field-group">
               <label htmlFor="password">Password</label>
               <input
                 type="password"
