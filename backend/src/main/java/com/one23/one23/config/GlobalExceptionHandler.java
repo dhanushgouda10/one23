@@ -38,15 +38,23 @@ public class GlobalExceptionHandler {
             fieldErrors.put(error.getField(), error.getDefaultMessage());
         }
 
-        String firstMessage = fieldErrors.values().stream()
-                .findFirst()
-                .orElse("Validation failed");
+        String firstMessage = firstFieldErrorMessage(fieldErrors);
 
         Map<String, Object> body = new HashMap<>();
         body.put("message", firstMessage);
         body.put("fieldErrors", fieldErrors);
 
         return ResponseEntity.badRequest().body(body);
+    }
+
+    // The top-level "message" field shows just one problem even when
+    // several fields failed validation at once — this picks whichever
+    // field error came first.
+    private String firstFieldErrorMessage(Map<String, String> fieldErrors) {
+        for (String message : fieldErrors.values()) {
+            return message;
+        }
+        return "Validation failed";
     }
 
     // Expected "bad input" errors thrown by services (e.g. MatchingService

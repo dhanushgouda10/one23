@@ -5,8 +5,6 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.web.servlet.config.annotation.CorsRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
-import java.util.Arrays;
-
 @Configuration
 public class CorsConfig implements WebMvcConfigurer {
 
@@ -17,14 +15,18 @@ public class CorsConfig implements WebMvcConfigurer {
     private String allowedOrigins;
 
     // Allow React frontend to call backend APIs
+    //
+    // Uses allowedOriginPatterns (not allowedOrigins) so entries can contain
+    // wildcards like "http://localhost:*" — Vite's dev server doesn't always
+    // land on 5173 (port-in-use fallback, sandboxed dev environments, etc.),
+    // and allowedOriginPatterns still reflects back the exact matched origin
+    // in the response header, so it remains safe to combine with
+    // allowCredentials(true) (unlike a literal "*" in allowedOrigins, which
+    // Spring rejects outright when credentials are allowed).
     @Override
     public void addCorsMappings(CorsRegistry registry) {
         registry.addMapping("/**")
-                .allowedOrigins(
-                        Arrays.stream(allowedOrigins.split(","))
-                                .map(String::trim)
-                                .toArray(String[]::new)
-                )
+                .allowedOriginPatterns(CorsOrigins.parse(allowedOrigins))
                 .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH")
                 .allowedHeaders("*")
                 .allowCredentials(true);

@@ -3,6 +3,7 @@ package com.one23.one23.ride.dto;
 import com.one23.one23.ride.model.RideRequest;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -40,8 +41,14 @@ public class RideResponse {
         return response;
     }
 
+    // Converts a whole list of rides at once — used by /api/my-rides and by
+    // /api/join whenever that call is the one that completes a match.
     public static List<RideResponse> fromList(List<RideRequest> rides) {
-        return rides.stream().map(RideResponse::from).toList();
+        List<RideResponse> responses = new ArrayList<>();
+        for (RideRequest ride : rides) {
+            responses.add(RideResponse.from(ride));
+        }
+        return responses;
     }
 
     public Long getId() {

@@ -88,17 +88,24 @@ ONE23_DATABASE_PASSWORD=your_password
 - PostgreSQL
 
 ### Frontend
-- React 18
-- Vite
-- React Router
+- React 19
+- TanStack Start (Vite) + TanStack Router
 - Axios
-- Socket.js + STOMP
+- SockJS + STOMP
 
 ## API Endpoints
 
-- `POST /api/rides` - Create a new ride request
-- `GET /api/rides` - Get all ride requests
-- WebSocket: `/ws` - Real-time ride matching updates
+- `POST /api/auth/signup` - Register a new user
+- `POST /api/auth/login` - Log in and receive a JWT
+- `POST /api/join` - Join the ride-matching queue for a pickup hub + destination
+- `GET /api/my-rides` - List the logged-in user's rides
+- `PATCH /api/rides/{id}/cancel` - Cancel a waiting ride
+- `GET /api/groups/{groupId}` - Load a matched group's details
+- `PATCH /api/rides/{groupId}/start` - Start a matched ride
+- `PATCH /api/rides/{groupId}/end` - End a ride
+- `PATCH /api/rides/{groupId}/cancel-group` - Leave a matched group
+- `GET /api/chat/{groupId}` - Load a group's chat history
+- WebSocket: `/ws` - Real-time match updates, group chat, live location, and group lifecycle events
 
 ## Development Notes
 

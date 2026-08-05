@@ -8,8 +8,6 @@ import org.springframework.web.socket.config.annotation.EnableWebSocketMessageBr
 import org.springframework.web.socket.config.annotation.StompEndpointRegistry;
 import org.springframework.web.socket.config.annotation.WebSocketMessageBrokerConfigurer;
 
-import java.util.Arrays;
-
 @Configuration
 @EnableWebSocketMessageBroker
 public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
@@ -20,7 +18,10 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
     // so the WebSocket endpoint can't be reached from origins the REST API
     // itself would reject. Previously this was setAllowedOriginPatterns("*"),
     // which let ANY origin open a socket and read/send chat + live location
-    // for any group it could authenticate into.
+    // for any group it could authenticate into. It now uses the same
+    // pattern-based matching as CorsConfig (see setAllowedOriginPatterns
+    // below) so a dev-only entry like "http://localhost:*" is still scoped
+    // to actual matched origins, not a true wildcard.
     @Value("${app.cors.allowed-origins}")
     private String allowedOrigins;
 
@@ -49,11 +50,7 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
     @Override
     public void registerStompEndpoints(StompEndpointRegistry registry) {
         registry.addEndpoint("/ws")
-                .setAllowedOrigins(
-                        Arrays.stream(allowedOrigins.split(","))
-                                .map(String::trim)
-                                .toArray(String[]::new)
-                )
+                .setAllowedOriginPatterns(CorsOrigins.parse(allowedOrigins))
                 .withSockJS();
     }
 }

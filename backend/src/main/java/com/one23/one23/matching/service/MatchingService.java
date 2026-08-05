@@ -1,5 +1,6 @@
 package com.one23.one23.matching.service;
 
+import com.one23.one23.ride.dto.RideResponse;
 import com.one23.one23.ride.model.RideRequest;
 import com.one23.one23.ride.repository.RideRequestRepository;
 import jakarta.transaction.Transactional;
@@ -57,8 +58,23 @@ public class MatchingService {
 
         List<RideRequest> group = formGroup(waitingOnSameRoute);
 
-        // Send match update to all lobby tabs via WebSocket
-        messagingTemplate.convertAndSend("/topic/match", group);
+        // Send match update to all lobby tabs via WebSocket.
+        //
+        // BUG FIX: this used to broadcast the raw RideRequest entities,
+        // which serialize their full User association (id + email — see
+        // RideRequest.user, @ManyToOne so it's eagerly fetched, not
+        // @JsonIgnore'd). /topic/match is a single global, unauthenticated
+        // topic every connected client subscribes to (see
+        // createMatchClient() in the frontend), so that leaked every
+        // matched rider's internal user id and email to every other
+        // logged-in user's browser, not just the group's own members.
+        // RideResponse (already used for the HTTP /api/join response — see
+        // RideController) strips that down to the same scalar fields the
+        // frontend actually reads, with no behavior change on the
+        // receiving end: the frontend's onMatch callback only uses this
+        // message to trigger a refetch of /api/my-rides, it never reads
+        // the broadcast payload itself.
+        messagingTemplate.convertAndSend("/topic/match", RideResponse.fromList(group));
         logger.info("Group created: {} at hub: {} -> {}", group.get(0).getGroupId(), hubKey, destinationKey);
 
         return group;

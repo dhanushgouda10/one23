@@ -171,10 +171,7 @@ public class RideController {
         }
 
         // Don't allow cancelling once the ride is already underway or finished
-        boolean anyInProgressOrDone = rides.stream()
-                .anyMatch(ride -> "IN_PROGRESS".equals(ride.getStatus()) || "COMPLETED".equals(ride.getStatus()));
-
-        if (anyInProgressOrDone) {
+        if (isAnyRideInProgressOrDone(rides)) {
             return ResponseEntity.status(HttpStatus.CONFLICT)
                     .body(Map.of("message", "Ride already started or completed — cannot cancel now"));
         }
@@ -283,7 +280,23 @@ public class RideController {
     }
 
     private boolean isMemberOfGroup(List<RideRequest> rides, User user) {
-        return rides.stream().anyMatch(ride -> isOwnedBy(ride, user));
+        for (RideRequest ride : rides) {
+            if (isOwnedBy(ride, user)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    // A group can't be cancelled once any member's ride has actually
+    // started or finished — only still-MATCHED groups can be left.
+    private boolean isAnyRideInProgressOrDone(List<RideRequest> rides) {
+        for (RideRequest ride : rides) {
+            if ("IN_PROGRESS".equals(ride.getStatus()) || "COMPLETED".equals(ride.getStatus())) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private ResponseEntity<?> unauthorized() {
