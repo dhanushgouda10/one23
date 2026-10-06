@@ -1,0 +1,33 @@
+export const PICKUP_HUBS = [
+  "Whitefield",
+  "Marathahalli",
+  "Electronic City",
+  "Bellandur",
+  "HSR Layout",
+  "Koramangala",
+  "Indiranagar",
+  "Hebbal",
+  "Yelahanka",
+  "Jayanagar",
+  "Banashankari",
+  "BTM Layout",
+  "KR Puram",
+  "Kadugodi",
+  "Sarjapur Road",
+  "Silk Board",
+  "Majestic",
+];
+
+export const DESTINATIONS = [
+  "Manyata Tech Park",
+  "Bagmane Tech Park",
+  "Embassy Tech Village",
+  "ITPL",
+  "Brookefield",
+  "EcoSpace",
+  "Prestige Tech Park",
+  "RMZ Infinity",
+  "Global Village Tech Park",
+  "Outer Ring Road",
+  "MG Road",
+];
