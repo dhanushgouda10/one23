@@ -1,500 +1,134 @@
-# Ride Together
+# one23 — Frontend
 
-# ROLE
+one23 groups Bengaluru office commuters going the same way into groups of three, so they can share an auto or cab. This repo is the web frontend. It talks to a separate Spring backend over REST and WebSockets.
 
-You are a world-class Product Designer, UX Architect, and Senior Frontend Engineer.
+## Tech stack
 
-Your task is to design and build a complete, production-quality frontend for my application.
+| Area | Library |
+|---|---|
+| UI | React 19 (function components + hooks, `.jsx`) |
+| Build / dev server | Vite 8 + `@vitejs/plugin-react` |
+| Routing | react-router-dom 7 |
+| Styling | Plain CSS, all in `src/styles.css` (no Tailwind / CSS-in-JS) |
+| Map | Leaflet + OpenStreetMap tiles (lazy-loaded on the group lobby page) |
+| Real-time | STOMP over SockJS (`@stomp/stompjs`, `sockjs-client`) |
+| Code quality | ESLint 10 (react-hooks, react-refresh) + Prettier |
 
-I have attached an inspiration image.
+## Getting started
 
-Your first responsibility is to carefully analyze the inspiration and understand its DESIGN LANGUAGE—not its content.
-
-Study and extract:
-
-- Visual hierarchy
-
-- Layout composition
-
-- Grid system
-
-- Spacing rhythm
-
-- Typography hierarchy
-
-- Component styling
-
-- Navigation patterns
-
-- Card design
-
-- Form design
-
-- Information architecture
-
-- Motion principles
-
-- Hover interactions
-
-- Micro-interactions
-
-- Overall product feel
-
-DO NOT copy the inspiration.
-
-DO NOT recreate the layouts.
-
-DO NOT imitate the branding.
-
-Instead, apply the same design philosophy to my own product so that it feels like it was designed by the same design team while remaining completely original.
-
-------------------------------------------------------------
-
-# ABOUT MY PRODUCT
-
-Application Name:
-
-one23
-
-Product Type:
-
-Modern ride-sharing platform.
-
-Purpose:
-
-Help students and office commuters travelling in the same direction discover each other, create rides, join rides, communicate, and share travel costs in a seamless experience.
-
-This is NOT a taxi booking application.
-
-It is a collaborative ride-sharing platform focused on simplicity, trust, community, and efficient commuting.
-
-------------------------------------------------------------
-
-# TARGET USERS
-
-- College students
-
-- Office commuters
-
-- Daily travellers
-
-- People looking to split travel costs
-
-The interface should feel modern, effortless, trustworthy, and enjoyable to use.
-
-------------------------------------------------------------
-
-# BUILD THE COMPLETE APPLICATION
-
-Design the complete frontend with consistent UX and reusable components.
-
-Generate all major pages:
-
-• Landing Page
-
-• Login
-
-• Signup
-
-• Forgot Password
-
-• Dashboard
-
-• Find Rides
-
-• Ride Details
-
-• Create Ride
-
-• Edit Ride
-
-• Ride Matching
-
-• Chat
-
-• Notifications
-
-• Profile
-
-• Ride History
-
-• Saved Places
-
-• Settings
-
-• Help & Support
-
-• 404 Page
-
-------------------------------------------------------------
-
-# LANDING PAGE
-
-Create a memorable first impression.
-
-Include:
-
-- Hero section
-
-- Strong value proposition
-
-- Clear call-to-action
-
-- Product overview
-
-- How it works
-
-- Features
-
-- Safety & Trust
-
-- Testimonials
-
-- FAQ
-
-- Footer
-
-Design a landing page that immediately communicates why users should use one23.
-
-------------------------------------------------------------
-
-# DASHBOARD
-
-The dashboard should become the user's home.
-
-Include sections such as:
-
-Upcoming Ride
-
-Quick Actions
-
-Suggested Rides
-
-Ride Activity
-
-Notifications
-
-Recent Chats
-
-Saved Destinations
-
-Everything should be highly scannable.
-
-------------------------------------------------------------
-
-# FIND RIDES
-
-Design an excellent browsing experience.
-
-Users should be able to:
-
-Search rides
-
-Filter rides
-
-Sort rides
-
-View rides as beautiful cards
-
-Each ride should clearly display:
-
-Pickup
-
-Destination
-
-Departure Time
-
-Seats Available
-
-Driver Information
-
-Vehicle Information
-
-Estimated Cost Share
-
-Ride Status
-
-------------------------------------------------------------
-
-# CREATE RIDE
-
-Create a guided experience that feels extremely simple.
-
-Collect:
-
-Pickup
-
-Destination
-
-Date
-
-Time
-
-Seats
-
-Vehicle
-
-Notes
-
-Provide a review screen before publishing.
-
-------------------------------------------------------------
-
-# RIDE DETAILS
-
-Show complete ride information.
-
-Include:
-
-Route overview
-
-Driver profile
-
-Passengers
-
-Ride timeline
-
-Join Ride action
-
-------------------------------------------------------------
-
-# MATCHING
-
-Design an engaging matching experience.
-
-Instead of showing a boring loading screen,
-
-Create an interactive waiting experience with:
-
-Matching progress
-
-Nearby compatible riders
-
-Estimated waiting time
-
-Status updates
-
-Meaningful animations
-
-------------------------------------------------------------
-
-# CHAT
-
-Create a modern messaging experience.
-
-Include:
-
-Conversation
-
-Ride summary
-
-Typing indicator
-
-Read receipts
-
-Participant information
-
-Location sharing placeholder
-
-------------------------------------------------------------
-
-# PROFILE
-
-Design a profile that increases trust.
-
-Include:
-
-Personal information
-
-Verification
-
-Ride statistics
-
-Achievements
-
-Ride history
-
-Saved locations
-
-Preferences
-
-------------------------------------------------------------
-
-# SETTINGS
-
-Organize settings into logical sections.
-
-Support:
-
-Profile
-
-Privacy
-
-Notifications
-
-Security
-
-Preferences
-
-Help
-
-About
-
-------------------------------------------------------------
-
-# DESIGN SYSTEM
-
-Create a complete reusable design system.
-
-Every page should feel cohesive.
-
-Components should include:
-
-Buttons
-
-Cards
-
-Inputs
-
-Dropdowns
-
-Tables
-
-Search
-
-Filters
-
-Badges
-
-Tabs
-
-Navigation
-
-Dialogs
-
-Drawers
-
-Bottom Sheets
-
-Toasts
-
-Loading Skeletons
-
-Empty States
-
-Error States
-
-Success States
-
-Everything should be reusable.
-
-------------------------------------------------------------
-
-# USER EXPERIENCE
-
-Improve every interaction.
-
-Reduce friction.
-
-Maintain excellent information hierarchy.
-
-Create intuitive user flows.
-
-Make primary actions obvious.
-
-Ensure every page naturally guides the user to the next action.
-
-------------------------------------------------------------
-
-# RESPONSIVENESS
-
-The application must be fully responsive.
-
-Desktop
-
-Laptop
-
-Tablet
-
-Mobile
-
-Do not simply shrink layouts.
-
-Adapt them intelligently for each screen size.
-
-------------------------------------------------------------
-
-# ACCESSIBILITY
-
-Design with accessibility in mind.
-
-Readable typography
-
-Keyboard navigation
-
-Proper focus states
-
-Accessible components
-
-Good contrast
-
-Large touch targets
-
-------------------------------------------------------------
-
-# CODE QUALITY
-
-Use:
-
-React
-
-Vite
-
-Tailwind CSS
-
-Reusable components
-
-Clean folder structure
-
-Scalable architecture
-
-Modern frontend best practices
-
-Avoid duplicated code.
-
-------------------------------------------------------------
-
-# IMPORTANT
-
-Do not generate a generic dashboard template.
-
-Do not copy the inspiration.
-
-Do not redesign only one page.
-
-Design the ENTIRE application as a cohesive product.
-
-The final result should feel like a polished startup product built by an experienced product design team and be portfolio-quality.
-
-Before generating anything, first understand the user's journey from opening the website to completing a ride, then design every screen around that journey while using the attached inspiration only as a guide for the visual language and interaction philosophy—not as a layout to replicate.
-
-This project was built with [Lovable](https://lovable.dev).
-
-## Build with Lovable
-
-Continue developing this project in the [Lovable editor](https://lovable.dev/projects/4f89f62a-37ec-45f6-9f07-592dcee795d2).
-
-- **Ship faster**: describe what you want to build and Lovable handles the code.
-- **Stay in sync**: every change made in Lovable is committed straight to this repository.
-- **Full ownership**: this code is yours. Push to `main` on GitHub and your changes sync back into Lovable, ready for your next prompt.
-
-## Development
-
-Prefer working locally? You need Node.js and npm — [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating).
+Requirements: Node.js 20+ and npm.
 
 ```sh
-git clone <this-repository-url>
-cd <repository-name>
-npm i
-npm run dev
+npm install        # or: npm ci
+npm run dev        # http://localhost:5173
 ```
+
+The backend should be running on `http://localhost:8080` (the default).
+
+### Scripts
+
+| Command | What it does |
+|---|---|
+| `npm run dev` | Start the dev server with hot reload |
+| `npm run build` | Production build into `dist/` |
+| `npm run preview` | Serve the built `dist/` locally |
+| `npm run lint` | Run ESLint on all `.js` / `.jsx` files |
+| `npm run format` | Format all files with Prettier |
+| `npm run format:check` | Check formatting without changing files |
+
+### Environment variables
+
+Copy `.env.example` to `.env` if you need to override the defaults. Vite only exposes variables that start with `VITE_`, and it bakes them in at **build time**.
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `VITE_API_URL` | `http://localhost:8080` | Backend REST base URL |
+| `VITE_WS_URL` | `${VITE_API_URL}/ws` | SockJS/STOMP endpoint |
+
+For production, use `https://` URLs. SockJS switches to `wss://` on its own.
+
+## Project structure
+
+```
+index.html                 HTML shell; loads Google Fonts and /src/main.jsx
+vite.config.js             React plugin + `global` → `globalThis` shim (needed by sockjs-client)
+eslint.config.js           ESLint flat config
+src/
+  main.jsx                 React root (StrictMode + BrowserRouter)
+  App.jsx                  Route table + global <Toaster />
+  styles.css               All styles (design tokens, layout, components)
+  components/
+    AppShell.jsx           Signed-in layout (sidebar / mobile nav, logout)
+    AuthShell.jsx          Login / signup layout
+    MarketingLayout.jsx    Landing-page header + footer
+    Button.jsx, Input.jsx  Basic form controls
+    primitives.jsx         StatusBadge, Chip, Avatar, EmptyState, ErrorState, SkeletonCard, PageLoader
+    GroupLobbyMap.jsx      Leaflet map: pickup, destination and live rider pins
+    Icons.jsx, Logo.jsx, SectionHeading.jsx, Toaster.jsx
+  pages/                   One component per route (see below)
+  hooks/
+    useRequireAuth.js      Redirects to /login when there's no session
+  lib/
+    api.js                 fetch wrapper + all REST calls
+    websocket.js           STOMP clients for match / chat / location / group events
+    session.js             Token + user info in sessionStorage
+    config.js              Reads VITE_API_URL / VITE_WS_URL
+    toast.js               Tiny pub/sub used by <Toaster />
+    locations.js           Pickup hubs and destinations shown on the Join page
+    hubCoordinates.js      Lat/lng for those places (used by the map)
+    utils.js               initialsOf(), escapeHtml()
+```
+
+## Routes
+
+| Path | Page | Login required |
+|---|---|---|
+| `/` | `HomePage` — landing page | No |
+| `/login` | `LoginPage` | No |
+| `/signup` | `SignupPage` (signs up, then logs in) | No |
+| `/dashboard` | `DashboardPage` — overview + quick actions | Yes |
+| `/join` | `JoinPage` — pick a pickup hub and destination | Yes |
+| `/rides` | `MyRidesPage` — your rides; refreshes live when a group forms | Yes |
+| `/rides/:groupId` | `GroupLobbyPage` — group chat, live map, start / end / cancel ride | Yes |
+| `*` | `NotFoundPage` | No |
+
+## Backend contract
+
+### REST (`src/lib/api.js`)
+
+The JWT is sent as `Authorization: Bearer <token>` on every call except `/api/auth/*`. A `401` clears the session and sends the user to `/login?sessionExpired=1`.
+
+| Method | Path | Used for |
+|---|---|---|
+| POST | `/api/auth/signup` | Create account `{ fullName, email, password }` |
+| POST | `/api/auth/login` | Log in `{ email, password }` → `{ token, fullName, email }` |
+| POST | `/api/join` | Request a ride `{ pickupHub, destination }` |
+| GET | `/api/my-rides` | List the current user's rides |
+| PATCH | `/api/rides/{rideId}/cancel` | Cancel a waiting ride |
+| GET | `/api/groups/{groupId}` | Group details and members |
+| GET | `/api/chat/{groupId}` | Chat history |
+| PATCH | `/api/rides/{groupId}/start` | Start the ride |
+| PATCH | `/api/rides/{groupId}/end` | End the ride |
+| PATCH | `/api/rides/{groupId}/cancel-group` | Cancel the ride for the whole group |
+
+Errors are read from `{ message }` or `{ fieldErrors: { field: message } }`.
+
+### WebSocket (`src/lib/websocket.js`)
+
+The client connects with SockJS to `VITE_WS_URL` and sends the JWT in the STOMP CONNECT headers. It reconnects every 5 s and sends heartbeats every 10 s.
+
+| Direction | Destination | Payload / meaning |
+|---|---|---|
+| Subscribe | `/topic/match` | A group was formed. My Rides reloads (and falls back to 5 s polling if the socket fails). |
+| Subscribe | `/topic/chat/{groupId}` | New chat message |
+| Subscribe | `/topic/location/{groupId}` | `{ userName, latitude, longitude }` |
+| Subscribe | `/topic/group/{groupId}` | `{ type: "STARTED" \| "COMPLETED" \| "DISSOLVED", message }` |
+| Send | `/app/chat/{groupId}` | `{ message }` |
+| Send | `/app/location/{groupId}` | `{ latitude, longitude }` |
+
+## Notes
+
+- The session is kept in `sessionStorage`, so it ends when the tab closes.
+- Text from users (names, place names) is escaped before it goes into Leaflet tooltips and markers, because Leaflet renders those strings as HTML.
+- `node_modules` contains platform-specific binaries. Run `npm ci` again after moving the project to a different OS.
+- See `AUDIT_REPORT.md` for the stack audit and the changes made from it.

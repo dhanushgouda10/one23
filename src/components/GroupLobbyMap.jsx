@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { coordinatesFor, BENGALURU_CENTER } from "../lib/hubCoordinates";
-import { initialsOf } from "../lib/utils";
+import { initialsOf, escapeHtml } from "../lib/utils";
 
 const RIDER_COLORS = ["#2563eb", "#7c3aed", "#db2777", "#ea580c", "#0891b2"];
 
@@ -11,7 +11,7 @@ function colorForRider(name) {
 }
 
 function pinHtml(color, label) {
-  return `<div style="background:${color};display:grid;place-items:center;height:32px;width:32px;border-radius:9999px;border:2px solid white;font-size:10px;font-weight:700;color:white;box-shadow:0 4px 6px rgba(0,0,0,.12)">${label}</div>`;
+  return `<div style="background:${color};display:grid;place-items:center;height:32px;width:32px;border-radius:9999px;border:2px solid white;font-size:10px;font-weight:700;color:white;box-shadow:0 4px 6px rgba(0,0,0,.12)">${escapeHtml(label)}</div>`;
 }
 
 export function GroupLobbyMap({ pickupHub, destination, memberLocations, selfName }) {
@@ -61,13 +61,13 @@ export function GroupLobbyMap({ pickupHub, destination, memberLocations, selfNam
         if (pickupCoords) {
           L.marker([pickupCoords.lat, pickupCoords.lng], { icon: pinIcon("#16a34a", "P") })
             .addTo(map)
-            .bindTooltip(`Pickup — ${pickupHub}`);
+            .bindTooltip(`Pickup — ${escapeHtml(pickupHub)}`);
           bounds.push([pickupCoords.lat, pickupCoords.lng]);
         }
         if (destCoords) {
           L.marker([destCoords.lat, destCoords.lng], { icon: pinIcon("#dc2626", "D") })
             .addTo(map)
-            .bindTooltip(`Destination — ${destination}`);
+            .bindTooltip(`Destination — ${escapeHtml(destination)}`);
           bounds.push([destCoords.lat, destCoords.lng]);
         }
         if (pickupCoords && destCoords) {
@@ -122,7 +122,7 @@ export function GroupLobbyMap({ pickupHub, destination, memberLocations, selfNam
       });
       riderMarkersRef.current[name] = L.marker([loc.latitude, loc.longitude], { icon })
         .addTo(map)
-        .bindTooltip(isSelf ? "You" : name);
+        .bindTooltip(isSelf ? "You" : escapeHtml(name));
     }
   }, [mapReady, memberLocations, selfName]);
 
