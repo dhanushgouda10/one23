@@ -1,10 +1,11 @@
 import { Link } from "react-router-dom";
 
+// one23 logo (images in /public).
+// Light background -> black oval. Dark background (onDark) -> lime oval.
 export function Logo({ onDark = false, to = "/" }) {
   return (
-    <Link to={to} aria-label="one23 home" className="logo">
-      <span className={onDark ? "logo-mark logo-mark-dark" : "logo-mark"}>1</span>
-      <span className={onDark ? "logo-text logo-text-dark" : "logo-text"}>one23</span>
+    <Link to={to} className="logo">
+      <img src={onDark ? "/logo-lime.png" : "/logo-black.png"} alt="one23" />
     </Link>
   );
 }

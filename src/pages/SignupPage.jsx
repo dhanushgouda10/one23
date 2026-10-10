@@ -1,3 +1,4 @@
+// Signup form. After signup we log in automatically with the same email + password.
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { ArrowRight } from "../components/Icons";
@@ -28,7 +29,7 @@ export function SignupPage() {
       await signup({ fullName, email, password });
       const session = await login({ email, password });
       setSession(session);
-      toast.success("Account created — let's find your first ride");
+      toast.success("Account created. Let's find your first ride!");
       navigate("/dashboard");
     } catch (err) {
       setFieldErrors(apiFieldErrors(err));
@@ -41,10 +42,10 @@ export function SignupPage() {
   return (
     <AuthShell
       title="Create your account"
-      subtitle="Two minutes now, a cheaper commute from tomorrow."
+      subtitle="Free. Takes a minute."
       footer={
         <>
-          Already riding with us? <Link to="/login">Log in</Link>
+          Already have an account? <Link to="/login">Log in</Link>
         </>
       }
     >
@@ -73,13 +74,13 @@ export function SignupPage() {
 
         <div className="field">
           <label htmlFor="email" className="label">
-            Work email
+            Email
           </label>
           <Input
             id="email"
             type="email"
             required
-            placeholder="you@company.com"
+            placeholder="you@example.com"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             aria-invalid={Boolean(fieldErrors.email)}
@@ -110,7 +111,7 @@ export function SignupPage() {
           )}
         </div>
 
-        <Button type="submit" variant="lime" size="xl" className="btn-full" disabled={loading}>
+        <Button type="submit" variant="lime" size="lg" className="btn-full" disabled={loading}>
           {loading ? "Creating account…" : "Create account"} <ArrowRight />
         </Button>
       </form>

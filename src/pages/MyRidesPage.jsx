@@ -1,201 +1,151 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { PlusCircle, MapPinOff, ArrowUpRight } from "../components/Icons";
 import { AppShell } from "../components/AppShell";
-import { PageHeader } from "../components/SectionHeading";
-import { EmptyState, PageLoader, SkeletonCard, StatusBadge } from "../components/primitives";
+import { PageHeader } from "../components/PageHeader";
+import { EmptyState, Loader, StatusBadge } from "../components/primitives";
 import { Button } from "../components/Button";
+import { ArrowRight } from "../components/Icons";
 import { getMyRides, cancelRide, apiErrorMessage } from "../lib/api";
 import { createMatchClient } from "../lib/websocket";
-import { useRequireAuth } from "../hooks/useRequireAuth";
+
+// Statuses that have a group lobby to open
+const HAS_LOBBY = ["MATCHED", "IN_PROGRESS", "COMPLETED"];
 
 function formatDate(dateString) {
-  return new Date(dateString).toLocaleString("en-IN");
+  return new Date(dateString).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" });
 }
 
+// List of all my rides, newest first.
+// The backend sends "REFRESH" on /topic/match whenever any group is formed.
 export function MyRidesPage() {
-  const { ready } = useRequireAuth();
   const [rides, setRides] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
   const [cancellingId, setCancellingId] = useState(null);
+  const [cancelError, setCancelError] = useState("");
 
-  const pollTimerRef = useRef(null);
-  const socketRef = useRef(null);
+  // Add 1 to refreshCount to reload the list (the effect below runs again)
+  const [refreshCount, setRefreshCount] = useState(0);
+  const reload = () => setRefreshCount((count) => count + 1);
 
-  function startPolling() {
-    if (pollTimerRef.current) return;
-    pollTimerRef.current = setInterval(() => {
-      void loadRides(false);
-    }, 5000);
-  }
-
-  function stopPolling() {
-    if (pollTimerRef.current) {
-      clearInterval(pollTimerRef.current);
-      pollTimerRef.current = null;
-    }
-  }
-
-  async function loadRides(showSpinner) {
-    if (showSpinner) setLoading(true);
-    try {
-      const data = await getMyRides();
-      setRides(data);
-      setError("");
-    } catch (err) {
-      setError(apiErrorMessage(err, "Failed to load rides. Please try again."));
-    } finally {
-      if (showSpinner) setLoading(false);
-    }
-  }
-
+  // Load my rides (on open, and every time refreshCount changes)
   useEffect(() => {
-    if (!ready) return;
-    let isMounted = true;
+    getMyRides()
+      .then((data) => {
+        const newestFirst = [...data].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+        setRides(newestFirst);
+        setError("");
+      })
+      .catch((err) => setError(apiErrorMessage(err, "Could not load your rides.")))
+      .finally(() => setIsLoading(false));
+  }, [refreshCount]);
 
-    void loadRides(true);
+  // Live updates: reload when a group is formed. If the WebSocket fails, reload every 5 s.
+  useEffect(() => {
+    let pollTimer = null;
 
     const client = createMatchClient({
+      onMatch: reload,
       onConnect: () => {
-        if (isMounted) stopPolling();
-      },
-      onMatch: () => {
-        if (isMounted) void loadRides(false);
+        clearInterval(pollTimer); // connected: no need to poll
+        pollTimer = null;
       },
       onError: () => {
-        if (isMounted) startPolling();
+        if (!pollTimer) pollTimer = setInterval(reload, 5000);
       },
     });
-    socketRef.current = client;
     client.activate();
 
+    // Cleanup when leaving the page
     return () => {
-      isMounted = false;
-      stopPolling();
-      socketRef.current?.deactivate();
-      socketRef.current = null;
+      clearInterval(pollTimer);
+      client.deactivate();
     };
-  }, [ready]);
+  }, []);
 
   async function handleCancel(rideId) {
-    if (cancellingId) return;
-    if (!window.confirm("Are you sure you want to cancel this ride?")) return;
-
-    setError("");
+    if (!window.confirm("Cancel this ride request?")) return;
+    setCancelError("");
     setCancellingId(rideId);
     try {
       await cancelRide(rideId);
-      await loadRides(false);
     } catch (err) {
-      setError(apiErrorMessage(err, "Failed to cancel ride. Please try again."));
+      // e.g. 409: the ride was matched a moment ago
+      setCancelError(apiErrorMessage(err, "Could not cancel the ride."));
     } finally {
       setCancellingId(null);
+      reload(); // always show the latest status
     }
   }
 
-  if (!ready) return <PageLoader label="Loading your rides…" />;
-
   return (
     <AppShell>
-      <div className="rides">
-        <PageHeader
-          title="My rides"
-          description="Track your ride requests and matched groups."
+      <PageHeader
+        title="My rides"
+        action={
+          <Link to="/join" className="btn btn-lime">
+            Join a ride
+          </Link>
+        }
+      />
+
+      {error || cancelError ? (
+        <p role="alert" className="alert">
+          {error || cancelError}
+        </p>
+      ) : null}
+
+      {isLoading ? (
+        <Loader label="Loading your rides…" />
+      ) : rides.length === 0 ? (
+        <EmptyState
+          title="No rides yet"
+          description="Join a ride to get matched with 2 people going your way."
           action={
-            <Link to="/join" className="btn btn-lime btn-lg">
-              <PlusCircle /> Join a ride
+            <Link to="/join" className="btn btn-lime">
+              Join a ride
             </Link>
           }
         />
+      ) : (
+        <ul className="ride-list">
+          {rides.map((ride) => (
+            <li key={ride.id} className="card ride-card">
+              <div className="row-between">
+                <h3>
+                  {ride.pickupHub} → {ride.destination}
+                </h3>
+                <StatusBadge status={ride.status} />
+              </div>
+              <p className="hint">Requested {formatDate(ride.createdAt)}</p>
 
-        {error ? (
-          <div role="alert" aria-live="polite" className="alert alert-row">
-            <span>{error}</span>
-            <Button variant="outline" size="sm" onClick={() => void loadRides(true)}>
-              Try again
-            </Button>
-          </div>
-        ) : null}
-
-        {loading ? (
-          <div className="ride-grid">
-            {Array.from({ length: 6 }).map((_, i) => (
-              <SkeletonCard key={i} />
-            ))}
-          </div>
-        ) : rides.length === 0 ? (
-          <EmptyState
-            icon={<MapPinOff size={24} />}
-            title="No rides yet"
-            description="Join a ride to get matched with two other commuters headed your way."
-            action={
-              <Link to="/join" className="btn btn-lime btn-lg">
-                Join a ride
-              </Link>
-            }
-          />
-        ) : (
-          <div className="ride-grid">
-            {rides.map((ride) => {
-              const clickable =
-                (ride.status === "MATCHED" || ride.status === "IN_PROGRESS") && Boolean(ride.groupId);
-              const cardBody = (
+              {ride.status === "WAITING" ? (
                 <>
-                  <div className="ride-card-top">
-                    <h3>
-                      {ride.pickupHub} → {ride.destination}
-                    </h3>
-                    <StatusBadge status={ride.status} />
-                  </div>
-                  <dl className="ride-dl">
-                    <div>
-                      <dt>Pickup hub</dt>
-                      <dd>{ride.pickupHub}</dd>
-                    </div>
-                    <div>
-                      <dt>Destination</dt>
-                      <dd>{ride.destination}</dd>
-                    </div>
-                    <div className="span-2">
-                      <dt>Requested</dt>
-                      <dd>{formatDate(ride.createdAt)}</dd>
-                    </div>
-                  </dl>
-                  {clickable ? (
-                    <span className="lobby-link">
-                      Open group lobby <ArrowUpRight size={14} />
-                    </span>
-                  ) : null}
+                  <p className="hint">
+                    Waiting for others on this route to make a group of 3. Requests expire after 15
+                    minutes.
+                  </p>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={cancellingId === ride.id}
+                    onClick={() => handleCancel(ride.id)}
+                  >
+                    {cancellingId === ride.id ? "Cancelling…" : "Cancel request"}
+                  </Button>
                 </>
-              );
+              ) : null}
 
-              if (clickable) {
-                return (
-                  <Link key={ride.id} to={`/rides/${ride.groupId}`} className="hover-lift surface ride-card">
-                    {cardBody}
-                  </Link>
-                );
-              }
-
-              return (
-                <article key={ride.id} className="surface ride-card">
-                  {cardBody}
-                  {ride.status === "WAITING" ? (
-                    <Button
-                      variant="outline"
-                      disabled={cancellingId === ride.id}
-                      onClick={() => void handleCancel(ride.id)}
-                    >
-                      {cancellingId === ride.id ? "Cancelling…" : "Cancel ride"}
-                    </Button>
-                  ) : null}
-                </article>
-              );
-            })}
-          </div>
-        )}
-      </div>
+              {HAS_LOBBY.includes(ride.status) && ride.groupId ? (
+                <Link to={`/rides/${ride.groupId}`} className="link">
+                  {ride.status === "COMPLETED" ? "View group chat" : "Open group lobby"}{" "}
+                  <ArrowRight size={14} />
+                </Link>
+              ) : null}
+            </li>
+          ))}
+        </ul>
+      )}
     </AppShell>
   );
 }

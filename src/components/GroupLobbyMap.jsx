@@ -1,3 +1,4 @@
+// Leaflet map for the lobby: metro station pin (M), office pin (O) and live member pins.
 import { useEffect, useRef, useState } from "react";
 import { coordinatesFor, BENGALURU_CENTER } from "../lib/hubCoordinates";
 import { initialsOf, escapeHtml } from "../lib/utils";
@@ -22,11 +23,11 @@ export function GroupLobbyMap({ pickupHub, destination, memberLocations, selfNam
   const [mapReady, setMapReady] = useState(false);
   const [mapError, setMapError] = useState("");
 
-  const pickupCoords = coordinatesFor(pickupHub);
-  const destCoords = coordinatesFor(destination);
-
+  // Create the map once per route (Leaflet is loaded only when this page opens)
   useEffect(() => {
     let cancelled = false;
+    const pickupCoords = coordinatesFor(pickupHub);
+    const destCoords = coordinatesFor(destination);
 
     async function init() {
       if (!containerRef.current) return;
@@ -59,15 +60,15 @@ export function GroupLobbyMap({ pickupHub, destination, memberLocations, selfNam
         const bounds = [];
 
         if (pickupCoords) {
-          L.marker([pickupCoords.lat, pickupCoords.lng], { icon: pinIcon("#16a34a", "P") })
+          L.marker([pickupCoords.lat, pickupCoords.lng], { icon: pinIcon("#16a34a", "M") })
             .addTo(map)
-            .bindTooltip(`Pickup — ${escapeHtml(pickupHub)}`);
+            .bindTooltip(`Metro station: ${escapeHtml(pickupHub)}`);
           bounds.push([pickupCoords.lat, pickupCoords.lng]);
         }
         if (destCoords) {
-          L.marker([destCoords.lat, destCoords.lng], { icon: pinIcon("#dc2626", "D") })
+          L.marker([destCoords.lat, destCoords.lng], { icon: pinIcon("#111827", "O") })
             .addTo(map)
-            .bindTooltip(`Destination — ${escapeHtml(destination)}`);
+            .bindTooltip(`Office: ${escapeHtml(destination)}`);
           bounds.push([destCoords.lat, destCoords.lng]);
         }
         if (pickupCoords && destCoords) {
@@ -102,6 +103,7 @@ export function GroupLobbyMap({ pickupHub, destination, memberLocations, selfNam
     };
   }, [pickupHub, destination]);
 
+  // Add or move a pin for every member who shares their location
   useEffect(() => {
     const L = leafletModRef.current;
     const map = mapRef.current;
@@ -134,15 +136,13 @@ export function GroupLobbyMap({ pickupHub, destination, memberLocations, selfNam
     >
       {mapError ? (
         <div className="map-error">
-          <p className="field-error" style={{ fontWeight: 600 }}>
-            {mapError}
-          </p>
+          <p className="field-error">{mapError}</p>
           <p className="hint">You can still use chat and location sharing without the map.</p>
         </div>
       ) : (
         <>
           {!mapReady ? (
-            <div className="map-loading animate-pulse">
+            <div className="map-loading">
               <p className="hint">Loading map…</p>
             </div>
           ) : null}

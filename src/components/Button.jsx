@@ -1,15 +1,13 @@
+// Button with the app's styles.
+// variant: "lime" (main action) | "outline" | "ghost"    size: "sm" | "md" | "lg"
 export function Button({
-  children,
-  variant = "default",
-  size = "default",
+  variant = "outline",
+  size = "md",
   className = "",
   type = "button",
   ...props
 }) {
-  const sizeClass = size === "default" ? "btn-default-size" : `btn-${size}`;
   return (
-    <button type={type} className={`btn btn-${variant} ${sizeClass} ${className}`} {...props}>
-      {children}
-    </button>
+    <button type={type} className={`btn btn-${variant} btn-${size} ${className}`} {...props} />
   );
 }

@@ -1,148 +1,115 @@
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { ArrowLeft, MapPin, Target } from "../components/Icons";
 import { AppShell } from "../components/AppShell";
-import { PageHeader } from "../components/SectionHeading";
-import { Chip, PageLoader } from "../components/primitives";
+import { PageHeader } from "../components/PageHeader";
 import { Button } from "../components/Button";
 import { joinRide, apiErrorMessage } from "../lib/api";
-import { PICKUP_HUBS, DESTINATIONS } from "../lib/locations";
-import { useRequireAuth } from "../hooks/useRequireAuth";
+import { toast } from "../lib/toast";
+import { METRO_STATIONS, DESTINATIONS } from "../lib/locations";
 
+// Join a ride: pick a metro station + office and send it to POST /api/join.
+// The backend answers with either:
+//   - one ride (status WAITING)  -> no group yet, go to My rides
+//   - a list of 3 rides (MATCHED) -> a group was formed, go to its lobby
 export function JoinPage() {
-  const { ready } = useRequireAuth();
-  const [pickupHub, setPickupHub] = useState("");
-  const [destination, setDestination] = useState("");
-  const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
-  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
-  const redirectTimerRef = useRef(null);
-
-  useEffect(() => {
-    return () => {
-      if (redirectTimerRef.current) clearTimeout(redirectTimerRef.current);
-    };
-  }, []);
-
-  if (!ready) return <PageLoader label="Loading…" />;
+  const [station, setStation] = useState("");
+  const [destination, setDestination] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState("");
+  const [hasOpenRide, setHasOpenRide] = useState(false);
 
   async function handleSubmit(event) {
     event.preventDefault();
-    if (loading) return;
     setError("");
-    setSuccess("");
-    setLoading(true);
+    setHasOpenRide(false);
+    setIsSubmitting(true);
 
     try {
-      const result = await joinRide({ pickupHub, destination });
-      const matchedGroupId = Array.isArray(result) ? result[0]?.groupId : null;
+      const result = await joinRide({ pickupHub: station, destination });
 
-      if (matchedGroupId) {
-        setSuccess("You're matched! Redirecting to your group lobby…");
-        redirectTimerRef.current = setTimeout(() => {
-          navigate(`/rides/${matchedGroupId}`);
-        }, 1200);
+      if (Array.isArray(result)) {
+        toast.success("You're matched! Say hi to your group.");
+        navigate(`/rides/${result[0].groupId}`);
       } else {
-        setSuccess("Ride joined — redirecting to My Rides…");
-        redirectTimerRef.current = setTimeout(() => {
-          navigate("/rides");
-        }, 1200);
+        toast.message(
+          "Request sent. We'll put you in a group as soon as 3 people are on this route.",
+        );
+        navigate("/rides");
       }
     } catch (err) {
-      setError(apiErrorMessage(err, "Failed to join ride."));
+      // 409 = the user already has a waiting/matched/in-progress ride
+      setHasOpenRide(err.status === 409);
+      setError(apiErrorMessage(err, "Could not join. Please try again."));
     } finally {
-      setLoading(false);
+      setIsSubmitting(false);
     }
   }
 
-  const canSubmit = Boolean(pickupHub && destination) && !loading;
-
   return (
     <AppShell>
-      <div className="join">
-        <Link to="/dashboard" className="btn btn-ghost btn-sm" style={{ width: "fit-content" }}>
-          <ArrowLeft /> Back
-        </Link>
+      <PageHeader
+        title="Join a ride"
+        description="You'll be grouped with 2 people going from the same metro station to the same office."
+      />
 
-        <PageHeader
-          title="Where to?"
-          description="Pick a pickup hub and destination. We'll group you with two other riders headed the same way."
-        />
+      <form onSubmit={handleSubmit} className="card form narrow">
+        {error ? (
+          <p role="alert" className="alert">
+            {error} {hasOpenRide ? <Link to="/rides">Go to My rides</Link> : null}
+          </p>
+        ) : null}
 
-        <div className="surface join-card">
-          {error ? (
-            <p role="alert" aria-live="polite" className="alert">
-              {error}
-            </p>
-          ) : null}
-          {success ? (
-            <p role="status" aria-live="polite" className="alert alert-success">
-              {success}
-            </p>
-          ) : null}
-
-          <form onSubmit={handleSubmit} className="join-form">
-            <div className="field" style={{ gap: "0.75rem" }}>
-              <label htmlFor="pickupHub" className="label-row">
-                <MapPin size={16} /> Pickup hub
-              </label>
-              <select
-                id="pickupHub"
-                required
-                value={pickupHub}
-                onChange={(e) => setPickupHub(e.target.value)}
-                className="select"
-              >
-                <option value="">Select pickup hub</option>
-                {PICKUP_HUBS.map((hub) => (
-                  <option key={hub} value={hub}>
-                    {hub}
-                  </option>
-                ))}
-              </select>
-              <div className="chip-row">
-                {PICKUP_HUBS.slice(0, 5).map((hub) => (
-                  <Chip key={hub} active={pickupHub === hub} onClick={() => setPickupHub(hub)}>
-                    {hub}
-                  </Chip>
-                ))}
-              </div>
-            </div>
-
-            <div className="field" style={{ gap: "0.75rem" }}>
-              <label htmlFor="destination" className="label-row">
-                <Target size={16} /> Destination
-              </label>
-              <select
-                id="destination"
-                required
-                value={destination}
-                onChange={(e) => setDestination(e.target.value)}
-                className="select"
-              >
-                <option value="">Select destination</option>
-                {DESTINATIONS.map((dest) => (
-                  <option key={dest} value={dest}>
-                    {dest}
-                  </option>
-                ))}
-              </select>
-              <div className="chip-row">
-                {DESTINATIONS.slice(0, 5).map((dest) => (
-                  <Chip key={dest} active={destination === dest} onClick={() => setDestination(dest)}>
-                    {dest}
-                  </Chip>
-                ))}
-              </div>
-            </div>
-
-            <Button type="submit" variant="lime" size="xl" className="btn-full" disabled={!canSubmit}>
-              {loading ? "Joining…" : "Continue"}
-            </Button>
-          </form>
+        <div className="field">
+          <label htmlFor="station" className="label">
+            Metro station
+          </label>
+          <select
+            id="station"
+            required
+            value={station}
+            onChange={(e) => setStation(e.target.value)}
+            className="input input-lg"
+          >
+            <option value="">Where do you get off?</option>
+            {METRO_STATIONS.map((name) => (
+              <option key={name} value={name}>
+                {name}
+              </option>
+            ))}
+          </select>
         </div>
-      </div>
+
+        <div className="field">
+          <label htmlFor="destination" className="label">
+            Office / destination
+          </label>
+          <select
+            id="destination"
+            required
+            value={destination}
+            onChange={(e) => setDestination(e.target.value)}
+            className="input input-lg"
+          >
+            <option value="">Where are you going?</option>
+            {DESTINATIONS.map((name) => (
+              <option key={name} value={name}>
+                {name}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <Button
+          type="submit"
+          variant="lime"
+          size="lg"
+          className="btn-full"
+          disabled={!station || !destination || isSubmitting}
+        >
+          {isSubmitting ? "Joining…" : "Find my group"}
+        </Button>
+      </form>
     </AppShell>
   );
 }

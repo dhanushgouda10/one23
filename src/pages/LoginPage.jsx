@@ -1,6 +1,7 @@
+// Login form. On success we save the token (lib/session.js) and go to the dashboard.
 import { useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
-import { Eye, EyeOff, Mail, Lock, ArrowRight } from "../components/Icons";
+import { Eye, EyeOff, ArrowRight } from "../components/Icons";
 import { toast } from "../lib/toast";
 import { AuthShell } from "../components/AuthShell";
 import { Button } from "../components/Button";
@@ -14,7 +15,9 @@ export function LoginPage() {
   const [show, setShow] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState(sessionExpired ? "Your session expired. Please log in again." : "");
+  const [error, setError] = useState(
+    sessionExpired ? "Your session expired. Please log in again." : "",
+  );
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
@@ -39,7 +42,7 @@ export function LoginPage() {
   return (
     <AuthShell
       title="Welcome back"
-      subtitle="Log in to see who's heading your way this morning."
+      subtitle="Log in to find people going your way."
       footer={
         <>
           New to one23? <Link to="/signup">Create an account</Link>
@@ -57,21 +60,16 @@ export function LoginPage() {
           <label htmlFor="email" className="label">
             Email
           </label>
-          <div className="field-wrap">
-            <span className="field-icon">
-              <Mail size={18} />
-            </span>
-            <Input
-              id="email"
-              type="email"
-              required
-              autoComplete="email"
-              placeholder="you@company.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="input-lg input-icon"
-            />
-          </div>
+          <Input
+            id="email"
+            type="email"
+            required
+            autoComplete="email"
+            placeholder="you@example.com"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            className="input-lg"
+          />
         </div>
 
         <div className="field">
@@ -79,9 +77,6 @@ export function LoginPage() {
             Password
           </label>
           <div className="field-wrap">
-            <span className="field-icon">
-              <Lock size={18} />
-            </span>
             <Input
               id="password"
               type={show ? "text" : "password"}
@@ -103,7 +98,7 @@ export function LoginPage() {
           </div>
         </div>
 
-        <Button type="submit" variant="lime" size="xl" className="btn-full" disabled={loading}>
+        <Button type="submit" variant="lime" size="lg" className="btn-full" disabled={loading}>
           {loading ? "Logging in…" : "Log in"} <ArrowRight />
         </Button>
       </form>

@@ -1,409 +1,299 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, MapPin, Send } from "../components/Icons";
-import { toast } from "../lib/toast";
 import { AppShell } from "../components/AppShell";
-import { Avatar, StatusBadge, ErrorState, PageLoader } from "../components/primitives";
-import { GroupLobbyMap } from "../components/GroupLobbyMap";
 import { Button } from "../components/Button";
-import { Input } from "../components/Input";
-import { getGroupDetails, getChatHistory, startRide, endRide, cancelGroup, apiErrorMessage } from "../lib/api";
+import { ArrowLeft } from "../components/Icons";
+import { ErrorState, Loader, StatusBadge } from "../components/primitives";
+import { GroupLobbyMap } from "../components/GroupLobbyMap";
+import { LobbyMembers } from "../components/LobbyMembers";
+import { LobbyChat } from "../components/LobbyChat";
+import {
+  getGroupDetails,
+  getChatHistory,
+  startRide,
+  endRide,
+  cancelGroup,
+  apiErrorMessage,
+} from "../lib/api";
 import { createLobbyClient, sendChatMessage, sendLocationUpdate } from "../lib/websocket";
-import { getUserName } from "../lib/session";
-import { initialsOf } from "../lib/utils";
-import { useRequireAuth } from "../hooks/useRequireAuth";
+import { getUserName, getUserEmail } from "../lib/session";
+import { toast } from "../lib/toast";
 
-function formatTime(timestamp) {
-  return new Date(timestamp).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" });
-}
-
+// Group lobby for one matched group (/rides/:groupId).
+// 1. Load the group (members, route, status) with REST.
+// 2. Load old chat messages with REST.
+// 3. Open ONE WebSocket for: new chat messages, live locations, group events.
+// Buttons: Start ride (MATCHED), End ride (IN_PROGRESS), Leave group (MATCHED).
 export function GroupLobbyPage() {
-  const { ready } = useRequireAuth();
   const { groupId } = useParams();
   const navigate = useNavigate();
-  const userName = getUserName() || "You";
+  const selfName = getUserName() || "You";
+  const selfEmail = getUserEmail();
 
-  const [group, setGroup] = useState(null);
-  const [status, setStatus] = useState("MATCHED");
-  const [loading, setLoading] = useState(true);
+  const [group, setGroup] = useState(null); // { pickupHub, destination, status, members }
+  const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
+  const [retryCount, setRetryCount] = useState(0);
 
   const [messages, setMessages] = useState([]);
-  const [messageInput, setMessageInput] = useState("");
   const [chatError, setChatError] = useState("");
 
-  const [sharingLocation, setSharingLocation] = useState(false);
+  const [isSharing, setIsSharing] = useState(false);
   const [locationError, setLocationError] = useState("");
-  const [memberLocations, setMemberLocations] = useState({});
+  const [memberLocations, setMemberLocations] = useState({}); // { "Priya": { latitude, longitude } }
 
-  const [starting, setStarting] = useState(false);
-  const [ending, setEnding] = useState(false);
-  const [cancelling, setCancelling] = useState(false);
+  const [busyAction, setBusyAction] = useState(""); // "start" | "end" | "leave" | ""
   const [actionError, setActionError] = useState("");
-  const [requestingLocation, setRequestingLocation] = useState(false);
 
-  const lobbyClientRef = useRef(null);
-  const locationIntervalRef = useRef(null);
-  const messagesEndRef = useRef(null);
-  const leavingRef = useRef(false);
-  const [retryTick, setRetryTick] = useState(0);
+  const clientRef = useRef(null); // the WebSocket client
+  const locationTimerRef = useRef(null); // setInterval id while sharing location
+  const isLeavingRef = useRef(false); // true while *I* am leaving (ignore my own DISSOLVED event)
 
+  const hasGroup = group !== null;
+
+  // ---- 1. Load the group ----
   useEffect(() => {
-    if (!ready) return;
-    let isMounted = true;
-    setLoading(true);
     getGroupDetails(groupId)
       .then((data) => {
-        if (!isMounted) return;
         setGroup(data);
-        setStatus(data.status);
         setLoadError("");
       })
-      .catch((err) => {
-        if (isMounted) setLoadError(apiErrorMessage(err, "Failed to load group details."));
-      })
-      .finally(() => {
-        if (isMounted) setLoading(false);
-      });
-    return () => {
-      isMounted = false;
-    };
-  }, [ready, groupId, retryTick]);
+      .catch((err) => setLoadError(apiErrorMessage(err, "Could not load this group.")))
+      .finally(() => setIsLoading(false));
+  }, [groupId, retryCount]);
 
-  // Load chat history, then open ONE live connection for chat, location and group events.
+  // ---- 2 + 3. Chat history and the live connection (only after the group loaded) ----
   useEffect(() => {
-    if (!ready || loading) return;
+    if (!hasGroup) return;
 
     getChatHistory(groupId)
       .then(setMessages)
       .catch((err) => setChatError(apiErrorMessage(err, "Could not load chat history.")));
 
     const client = createLobbyClient(groupId, {
-      onConnect: () => {
-        setChatError("");
-        setLocationError("");
-      },
-      onError: (message) => {
-        setChatError(message);
-        setLocationError(message);
-      },
+      onConnect: () => setChatError(""),
+      onError: (message) => setChatError(message),
+
+      // New chat message (skip it if we already have it)
       onMessage: (message) => {
-        setMessages((prev) => (prev.some((m) => m.id === message.id) ? prev : [...prev, message]));
+        setMessages((old) => (old.some((m) => m.id === message.id) ? old : [...old, message]));
       },
+
+      // Someone's live location
       onLocationUpdate: (update) => {
-        setMemberLocations((prev) => ({ ...prev, [update.userName]: update }));
+        setMemberLocations((old) => ({ ...old, [update.userName]: update }));
       },
+
+      // Group events from the backend
       onGroupEvent: (event) => {
-        // Another member left: the backend dissolved the group, so go back to My Rides.
-        if (event.type === "DISSOLVED" && !leavingRef.current) {
-          toast.message(event.message || "Your group was dissolved.");
+        if (event.type === "DISSOLVED" && !isLeavingRef.current) {
+          toast.message("A member left, so the group was closed. You're back in the waiting list.");
           navigate("/rides");
         }
-        // A member started or ended the ride: reload the group so everyone sees the new status.
         if (event.type === "STARTED" || event.type === "COMPLETED") {
-          if (event.type === "COMPLETED" && locationIntervalRef.current) {
-            clearInterval(locationIntervalRef.current);
-            locationIntervalRef.current = null;
-            setSharingLocation(false);
-          }
           getGroupDetails(groupId)
-            .then((data) => {
-              setGroup(data);
-              setStatus(data.status);
-            })
+            .then(setGroup)
             .catch(() => {});
+        }
+        if (event.type === "COMPLETED") {
+          clearInterval(locationTimerRef.current);
+          setIsSharing(false);
         }
       },
     });
-    lobbyClientRef.current = client;
+    clientRef.current = client;
     client.activate();
 
+    // Cleanup when leaving the page: close the connection and stop sharing
     return () => {
-      lobbyClientRef.current?.deactivate();
-      lobbyClientRef.current = null;
-      if (locationIntervalRef.current) {
-        clearInterval(locationIntervalRef.current);
-        locationIntervalRef.current = null;
-      }
+      client.deactivate();
+      clearInterval(locationTimerRef.current);
     };
-  }, [ready, loading, groupId, navigate]);
+  }, [hasGroup, groupId, navigate]);
 
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
-
+  // ---- Location sharing: send my position now and then every 5 seconds ----
   function handleShareLocation() {
-    if (requestingLocation || sharingLocation) return;
     if (!navigator.geolocation) {
-      setLocationError("Geolocation is not supported by your browser.");
-      return;
-    }
-    if (!lobbyClientRef.current?.connected) {
-      setLocationError("Location connection not ready. Please wait a moment and try again.");
+      setLocationError("Your browser doesn't support location.");
       return;
     }
     setLocationError("");
-    setRequestingLocation(true);
 
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        setSharingLocation(true);
-        setRequestingLocation(false);
-        sendLocationUpdate(
-          lobbyClientRef.current,
-          groupId,
-          position.coords.latitude,
-          position.coords.longitude,
-        );
-
-        locationIntervalRef.current = setInterval(() => {
-          navigator.geolocation.getCurrentPosition((pos) => {
-            sendLocationUpdate(
-              lobbyClientRef.current,
-              groupId,
-              pos.coords.latitude,
-              pos.coords.longitude,
-            );
-          });
-        }, 5000);
-      },
-      () => {
-        setLocationError("Unable to retrieve your location. Please enable location permissions.");
-        setSharingLocation(false);
-        setRequestingLocation(false);
-      },
-    );
-  }
-
-  async function handleStart() {
-    if (starting) return;
-    setStarting(true);
-    setActionError("");
-    try {
-      await startRide(groupId);
-      const data = await getGroupDetails(groupId);
-      setGroup(data);
-      setStatus(data.status);
-    } catch (err) {
-      setActionError(apiErrorMessage(err, "Failed to start ride."));
-    } finally {
-      setStarting(false);
+    function sendMyPosition() {
+      navigator.geolocation.getCurrentPosition(
+        (pos) =>
+          sendLocationUpdate(clientRef.current, groupId, pos.coords.latitude, pos.coords.longitude),
+        () => {
+          setLocationError("Could not get your location. Please allow location access.");
+          handleStopSharing();
+        },
+      );
     }
+
+    sendMyPosition();
+    locationTimerRef.current = setInterval(sendMyPosition, 5000);
+    setIsSharing(true);
   }
 
-  async function handleEnd() {
-    if (ending) return;
-    setEnding(true);
+  function handleStopSharing() {
+    clearInterval(locationTimerRef.current);
+    locationTimerRef.current = null;
+    setIsSharing(false);
+  }
+
+  // ---- Buttons ----
+  async function runAction(name, apiCall, failMessage) {
+    setBusyAction(name);
     setActionError("");
     try {
-      await endRide(groupId);
-      if (locationIntervalRef.current) {
-        clearInterval(locationIntervalRef.current);
-        locationIntervalRef.current = null;
-      }
-      setSharingLocation(false);
-      const data = await getGroupDetails(groupId);
-      setGroup(data);
-      setStatus(data.status);
+      await apiCall(groupId);
+      setGroup(await getGroupDetails(groupId));
     } catch (err) {
-      setActionError(apiErrorMessage(err, "Failed to end ride."));
+      setActionError(apiErrorMessage(err, failMessage));
     } finally {
-      setEnding(false);
+      setBusyAction("");
     }
   }
 
   async function handleLeaveGroup() {
-    if (cancelling) return;
-    if (!window.confirm("Cancel this ride for your whole group? This can't be undone.")) return;
-    setCancelling(true);
-    leavingRef.current = true;
-    setActionError("");
+    if (!window.confirm("Leave this group? The other two will go back to waiting.")) return;
+    setBusyAction("leave");
+    isLeavingRef.current = true;
     try {
       await cancelGroup(groupId);
-      toast.message("Group ride was cancelled.");
+      toast.message("You left the group.");
       navigate("/rides");
     } catch (err) {
-      leavingRef.current = false;
-      setActionError(apiErrorMessage(err, "Failed to cancel group."));
-    } finally {
-      setCancelling(false);
+      isLeavingRef.current = false;
+      setActionError(apiErrorMessage(err, "Could not leave the group."));
+      setBusyAction("");
     }
   }
 
-  function handleSendMessage(event) {
-    event.preventDefault();
-    const text = messageInput.trim();
-    if (!text) return;
-    const sent = sendChatMessage(lobbyClientRef.current, groupId, text);
-    if (!sent) {
-      setChatError("Chat connection lost. Please refresh the page.");
-      return;
-    }
-    setMessageInput("");
+  function handleSendMessage(text) {
+    const sent = sendChatMessage(clientRef.current, groupId, text);
+    if (!sent) setChatError("Chat is not connected. Please wait a moment.");
+    return sent;
   }
 
-  if (!ready) return <PageLoader label="Loading group lobby…" />;
+  // ---- Screen ----
+  if (isLoading) {
+    return (
+      <AppShell>
+        <Loader label="Loading group…" />
+      </AppShell>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <AppShell>
+        <ErrorState
+          description={loadError}
+          onRetry={() => {
+            setIsLoading(true);
+            setRetryCount((count) => count + 1);
+          }}
+        />
+      </AppShell>
+    );
+  }
+
+  const status = group.status;
 
   return (
     <AppShell>
-      <div className="lobby">
-        <Link to="/rides" className="btn btn-ghost btn-sm" style={{ width: "fit-content" }}>
-          <ArrowLeft /> Back to my rides
-        </Link>
+      <Link to="/rides" className="back-link">
+        <ArrowLeft size={16} /> My rides
+      </Link>
 
-        {loading ? (
-          <div className="surface animate-pulse" style={{ padding: "2rem" }}>
-            <p className="hint">Loading group lobby…</p>
-          </div>
-        ) : loadError ? (
-          <ErrorState
-            description={loadError}
-            onRetry={() => {
-              setLoadError("");
-              setRetryTick((t) => t + 1);
-            }}
-          />
-        ) : (
-          <>
-            <section className="surface lobby-card">
-              <div className="lobby-head">
-                <h1 className="font-display">
-                  {group?.pickupHub} → {group?.destination}
-                </h1>
-                <StatusBadge status={status} />
-              </div>
+      {/* Route, status and actions */}
+      <section className="card">
+        <div className="row-between">
+          <h1 className="lobby-title">
+            {group.pickupHub} → {group.destination}
+          </h1>
+          <StatusBadge status={status} />
+        </div>
 
-              {actionError ? (
-                <p role="alert" aria-live="polite" className="alert">
-                  {actionError}
-                </p>
-              ) : null}
+        {status === "MATCHED" ? (
+          <p className="tip">
+            Meet at the station, agree the fare with the auto driver <b>before</b> you start, then
+            split it 3 ways.
+          </p>
+        ) : null}
 
-              <div className="stack" style={{ gap: "0.75rem", marginTop: 0 }}>
-                <h2 className="muted-label">
-                  <MapPin size={16} /> Route &amp; live location
-                </h2>
+        {actionError ? (
+          <p role="alert" className="alert">
+            {actionError}
+          </p>
+        ) : null}
 
-                {group ? (
-                  <GroupLobbyMap
-                    pickupHub={group.pickupHub}
-                    destination={group.destination}
-                    memberLocations={memberLocations}
-                    selfName={userName}
-                  />
-                ) : null}
+        <div className="row">
+          {status === "MATCHED" ? (
+            <>
+              <Button
+                variant="lime"
+                disabled={busyAction !== ""}
+                onClick={() => runAction("start", startRide, "Could not start the ride.")}
+              >
+                {busyAction === "start" ? "Starting…" : "Start ride"}
+              </Button>
+              <Button variant="outline" disabled={busyAction !== ""} onClick={handleLeaveGroup}>
+                {busyAction === "leave" ? "Leaving…" : "Leave group"}
+              </Button>
+            </>
+          ) : null}
+          {status === "IN_PROGRESS" ? (
+            <Button
+              variant="lime"
+              disabled={busyAction !== ""}
+              onClick={() => runAction("end", endRide, "Could not end the ride.")}
+            >
+              {busyAction === "end" ? "Ending…" : "End ride"}
+            </Button>
+          ) : null}
+        </div>
+      </section>
 
-                {locationError ? <p className="field-error">{locationError}</p> : null}
-                {!sharingLocation && status !== "COMPLETED" ? (
-                  <Button variant="outline" disabled={requestingLocation} onClick={handleShareLocation}>
-                    {requestingLocation ? "Getting your location…" : "Share my location"}
-                  </Button>
-                ) : sharingLocation ? (
-                  <p className="sharing-row">
-                    <span className="dot-wrap">
-                      <span className="pulse-ring dot-ping" />
-                      <span className="dot" />
-                    </span>
-                    Sharing your location with the group
-                  </p>
-                ) : null}
-              </div>
+      <LobbyMembers
+        members={group.members}
+        selfEmail={selfEmail}
+        sharingNames={Object.keys(memberLocations)}
+      />
 
-              <div className="lobby-actions">
-                {status === "MATCHED" ? (
-                  <>
-                    <Button variant="lime" disabled={starting} onClick={handleStart}>
-                      {starting ? "Starting…" : "Start ride"}
-                    </Button>
-                    <Button variant="outline" disabled={cancelling} onClick={handleLeaveGroup}>
-                      {cancelling ? "Cancelling…" : "Cancel ride"}
-                    </Button>
-                  </>
-                ) : null}
-                {status === "IN_PROGRESS" ? (
-                  <Button variant="lime" disabled={ending} onClick={handleEnd}>
-                    {ending ? "Ending…" : "End ride"}
-                  </Button>
-                ) : null}
-              </div>
-            </section>
+      <LobbyChat
+        messages={messages}
+        selfName={selfName}
+        error={chatError}
+        onSend={handleSendMessage}
+      />
 
-            <section className="surface lobby-card" style={{ gap: "1rem" }}>
-              <h2 className="muted-label">Your group ({group?.members.length ?? 0})</h2>
-              <ul className="member-grid">
-                {group?.members.map((member) => (
-                  <li key={member.fullName} className="member-card">
-                    <Avatar initials={initialsOf(member.fullName)} size="md" />
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate" style={{ margin: 0, fontSize: "0.875rem", fontWeight: 600 }}>
-                        {member.fullName}
-                        {member.fullName === userName ? (
-                          <span className="hint" style={{ marginLeft: "0.375rem", fontWeight: 400 }}>
-                            (you)
-                          </span>
-                        ) : null}
-                      </p>
-                      <div className="member-meta">
-                        <StatusBadge status={member.rideStatus} />
-                        {memberLocations[member.fullName] ? (
-                          <span className="sharing-pill">
-                            <span className="badge-dot" aria-hidden />
-                            Sharing
-                          </span>
-                        ) : null}
-                      </div>
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            </section>
-
-            <section className="surface lobby-card">
-              <h2 className="muted-label">Group chat</h2>
-              {chatError ? <p className="field-error">{chatError}</p> : null}
-
-              <div className="chat-box">
-                {messages.length === 0 ? (
-                  <p className="chat-empty">No messages yet. Say hello!</p>
-                ) : (
-                  messages.map((msg) => {
-                    const own = msg.senderName === userName;
-                    return (
-                      <div key={msg.id} className={`bubble-wrap ${own ? "own" : "other"}`}>
-                        <div className={`bubble ${own ? "own" : "other"}`}>
-                          {!own ? <p className="bubble-name">{msg.senderName}</p> : null}
-                          <p>{msg.message}</p>
-                        </div>
-                        <p className="bubble-time">{formatTime(msg.timestamp)}</p>
-                      </div>
-                    );
-                  })
-                )}
-                <div ref={messagesEndRef} />
-              </div>
-
-              <form onSubmit={handleSendMessage} className="chat-form">
-                <Input
-                  value={messageInput}
-                  onChange={(e) => setMessageInput(e.target.value)}
-                  placeholder="Type a message…"
-                  aria-label="Message"
-                  className="input-chat"
-                />
-                <Button
-                  type="submit"
-                  size="icon-lg"
-                  variant="lime"
-                  disabled={!messageInput.trim()}
-                  aria-label="Send message"
-                >
-                  <Send size={18} />
-                </Button>
-              </form>
-            </section>
-          </>
-        )}
-      </div>
+      {/* Map + location sharing */}
+      <section className="card">
+        <h2 className="label">Map</h2>
+        <GroupLobbyMap
+          pickupHub={group.pickupHub}
+          destination={group.destination}
+          memberLocations={memberLocations}
+          selfName={selfName}
+        />
+        {locationError ? <p className="field-error">{locationError}</p> : null}
+        {status !== "COMPLETED" ? (
+          isSharing ? (
+            <div className="row">
+              <span className="live-dot" /> Sharing your location with the group
+              <Button variant="ghost" size="sm" onClick={handleStopSharing}>
+                Stop sharing
+              </Button>
+            </div>
+          ) : (
+            <Button variant="outline" onClick={handleShareLocation}>
+              Share my location
+            </Button>
+          )
+        ) : null}
+      </section>
     </AppShell>
   );
 }

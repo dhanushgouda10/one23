@@ -1,97 +1,89 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { PlusCircle, List, ArrowUpRight } from "../components/Icons";
 import { AppShell } from "../components/AppShell";
-import { PageHeader } from "../components/SectionHeading";
+import { PageHeader } from "../components/PageHeader";
+import { StatusBadge } from "../components/primitives";
+import { ArrowRight } from "../components/Icons";
 import { getMyRides } from "../lib/api";
-import { useRequireAuth } from "../hooks/useRequireAuth";
-import { PageLoader } from "../components/primitives";
+import { getUserName } from "../lib/session";
 
+// A ride is "current" while it is waiting, matched or in progress
+const CURRENT_STATUSES = ["WAITING", "MATCHED", "IN_PROGRESS"];
+
+// Home page after login: shows your current ride (if any) and quick links.
 export function DashboardPage() {
-  const { ready, userName } = useRequireAuth();
-  const [rides, setRides] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const firstName = (getUserName() || "there").split(" ")[0];
+  const [currentRide, setCurrentRide] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
 
+  // Load my rides once and pick the open one (a user can have only one open ride)
   useEffect(() => {
-    if (!ready) return;
-    let isMounted = true;
     getMyRides()
-      .then((data) => {
-        if (isMounted) setRides(data);
+      .then((rides) => {
+        const openRide = rides.find((ride) => CURRENT_STATUSES.includes(ride.status));
+        setCurrentRide(openRide || null);
       })
-      .catch(() => {})
-      .finally(() => {
-        if (isMounted) setLoading(false);
-      });
-    return () => {
-      isMounted = false;
-    };
-  }, [ready]);
-
-  if (!ready) return <PageLoader label="Loading your dashboard…" />;
-
-  const firstName = (userName || "there").split(" ")[0];
-  const active = rides.filter(
-    (ride) => ride.status === "WAITING" || ride.status === "MATCHED" || ride.status === "IN_PROGRESS",
-  ).length;
-  const completed = rides.filter((ride) => ride.status === "COMPLETED").length;
+      .catch(() => setCurrentRide(null))
+      .finally(() => setIsLoading(false));
+  }, []);
 
   return (
     <AppShell>
-      <div className="dash">
-        <PageHeader title={`${greeting()}, ${firstName}`} description="Where are you headed today?" />
+      <PageHeader title={`Hi, ${firstName}`} description="Going to the office today?" />
 
-        {!loading && rides.length > 0 ? (
-          <div className="stat-grid">
-            <div className="stat-card">
-              <p className="n">{rides.length}</p>
-              <p className="l">Total rides</p>
-            </div>
-            <div className="stat-card">
-              <p className="n">{active}</p>
-              <p className="l">Active</p>
-            </div>
-            <div className="stat-card">
-              <p className="n">{completed}</p>
-              <p className="l">Completed</p>
-            </div>
-          </div>
-        ) : null}
+      <section className="card current-ride">
+        <p className="label">Current ride</p>
+        {isLoading ? (
+          <p className="hint">Loading…</p>
+        ) : currentRide ? (
+          <CurrentRide ride={currentRide} />
+        ) : (
+          <>
+            <p>You don't have an active ride.</p>
+            <Link to="/join" className="btn btn-lime">
+              Join a ride <ArrowRight />
+            </Link>
+          </>
+        )}
+      </section>
 
-        <div className="action-grid">
-          <Link to="/join" className="hover-lift surface action-card">
-            <span className="action-ico lime">
-              <PlusCircle size={22} />
-            </span>
-            <h2>Join a ride</h2>
-            <p>
-              Pick your pickup hub and destination — we'll match you with two other commuters headed the
-              same way.
-            </p>
-            <span className="action-cta">
-              Get started <ArrowUpRight size={16} className="nudge" />
-            </span>
-          </Link>
-
-          <Link to="/rides" className="hover-lift surface action-card">
-            <span className="action-ico muted">
-              <List size={22} />
-            </span>
-            <h2>My rides</h2>
-            <p>View ride history, track live status, and jump back into a matched group's lobby.</p>
-            <span className="action-cta">
-              View rides <ArrowUpRight size={16} className="nudge" />
-            </span>
-          </Link>
-        </div>
+      <div className="grid-2">
+        <Link to="/join" className="card card-link">
+          <h3>Join a ride</h3>
+          <p>Pick your metro station and office. We'll find 2 people going the same way.</p>
+        </Link>
+        <Link to="/rides" className="card card-link">
+          <h3>My rides</h3>
+          <p>See your requests, groups and past rides.</p>
+        </Link>
       </div>
     </AppShell>
   );
 }
 
-function greeting() {
-  const hour = new Date().getHours();
-  if (hour < 12) return "Good morning";
-  if (hour < 17) return "Good afternoon";
-  return "Good evening";
+// The "current ride" box: route, status and where to go next
+function CurrentRide({ ride }) {
+  const hasGroup = ride.status !== "WAITING" && ride.groupId;
+  return (
+    <>
+      <div className="row-between">
+        <h3>
+          {ride.pickupHub} → {ride.destination}
+        </h3>
+        <StatusBadge status={ride.status} />
+      </div>
+      {hasGroup ? (
+        <Link to={`/rides/${ride.groupId}`} className="btn btn-lime">
+          Open group lobby <ArrowRight />
+        </Link>
+      ) : (
+        <>
+          <p className="hint">Waiting for others on this route to make a group of 3…</p>
+          <Link to="/rides" className="btn btn-outline">
+            View in My rides
+          </Link>
+        </>
+      )}
+    </>
+  );
 }

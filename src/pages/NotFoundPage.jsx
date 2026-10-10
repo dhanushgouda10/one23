@@ -8,7 +8,7 @@ export function NotFoundPage() {
         <h2>Page not found</h2>
         <p>The page you're looking for doesn't exist or has been moved.</p>
         <div className="center-actions">
-          <Link to="/" className="btn btn-default btn-default-size">
+          <Link to="/" className="btn btn-lime">
             Go home
           </Link>
         </div>
