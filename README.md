@@ -1,134 +1,139 @@
 # one23 — Frontend
 
-one23 groups Bengaluru office commuters going the same way into groups of three, so they can share an auto or cab. This repo is the web frontend. It talks to a separate Spring backend over REST and WebSockets.
+**one23** matches **3 people who get off at the same Bengaluru metro station and go to the same office**, so they can share **one regular (offline) auto** and **split the fare** (e.g. ₹180 alone → ₹60 each).
+The app only matches people. It does not book the auto or take payments.
+
+This folder is the React web app. It talks to the Spring Boot backend (`backendone23`) over REST and WebSocket.
 
 ## Tech stack
 
-| Area | Library |
-|---|---|
-| UI | React 19 (function components + hooks, `.jsx`) |
-| Build / dev server | Vite 8 + `@vitejs/plugin-react` |
-| Routing | react-router-dom 7 |
-| Styling | Plain CSS, all in `src/styles.css` (no Tailwind / CSS-in-JS) |
-| Map | Leaflet + OpenStreetMap tiles (lazy-loaded on the group lobby page) |
-| Real-time | STOMP over SockJS (`@stomp/stompjs`, `sockjs-client`) |
-| Code quality | ESLint 10 (react-hooks, react-refresh) + Prettier |
+| Area               | Library                                                             |
+| ------------------ | ------------------------------------------------------------------- |
+| UI                 | React 19 (function components + hooks, `.jsx`)                      |
+| Build / dev server | Vite 8                                                              |
+| Routing            | react-router-dom 7                                                  |
+| Styling            | **Plain CSS**, all in `src/styles.css` (no Tailwind, no UI library) |
+| Map                | Leaflet + OpenStreetMap tiles (only loaded on the group lobby page) |
+| Live updates       | STOMP over SockJS (`@stomp/stompjs`, `sockjs-client`)               |
+| Code quality       | ESLint + Prettier                                                   |
 
-## Getting started
+## Run it
 
-Requirements: Node.js 20+ and npm.
+Requirements: Node.js 20+ and the backend running on `http://localhost:8080`.
 
 ```sh
-npm install        # or: npm ci
+npm install
 npm run dev        # http://localhost:5173
 ```
 
-The backend should be running on `http://localhost:8080` (the default).
+| Command           | What it does                  |
+| ----------------- | ----------------------------- |
+| `npm run dev`     | Dev server with hot reload    |
+| `npm run build`   | Production build into `dist/` |
+| `npm run preview` | Serve the built `dist/`       |
+| `npm run lint`    | ESLint                        |
+| `npm run format`  | Prettier                      |
 
-### Scripts
+**Environment variables** (optional, copy `.env.example` to `.env`). They're baked in at build time:
 
-| Command | What it does |
-|---|---|
-| `npm run dev` | Start the dev server with hot reload |
-| `npm run build` | Production build into `dist/` |
-| `npm run preview` | Serve the built `dist/` locally |
-| `npm run lint` | Run ESLint on all `.js` / `.jsx` files |
-| `npm run format` | Format all files with Prettier |
-| `npm run format:check` | Check formatting without changing files |
+| Variable       | Default                 | Purpose                |
+| -------------- | ----------------------- | ---------------------- |
+| `VITE_API_URL` | `http://localhost:8080` | Backend REST URL       |
+| `VITE_WS_URL`  | `${VITE_API_URL}/ws`    | WebSocket (SockJS) URL |
 
-### Environment variables
-
-Copy `.env.example` to `.env` if you need to override the defaults. Vite only exposes variables that start with `VITE_`, and it bakes them in at **build time**.
-
-| Variable | Default | Purpose |
-|---|---|---|
-| `VITE_API_URL` | `http://localhost:8080` | Backend REST base URL |
-| `VITE_WS_URL` | `${VITE_API_URL}/ws` | SockJS/STOMP endpoint |
-
-For production, use `https://` URLs. SockJS switches to `wss://` on its own.
-
-## Project structure
+## Folder structure
 
 ```
-index.html                 HTML shell; loads Google Fonts and /src/main.jsx
-vite.config.js             React plugin + `global` → `globalThis` shim (needed by sockjs-client)
-eslint.config.js           ESLint flat config
+public/
+  logo-black.png        Logo for light backgrounds (header, sidebar)
+  logo-lime.png         Logo for dark backgrounds (login/signup panel)
+  favicon.ico           Browser tab icon (lime logo)
 src/
-  main.jsx                 React root (StrictMode + BrowserRouter)
-  App.jsx                  Route table + global <Toaster />
-  styles.css               All styles (design tokens, layout, components)
-  components/
-    AppShell.jsx           Signed-in layout (sidebar / mobile nav, logout)
-    AuthShell.jsx          Login / signup layout
-    MarketingLayout.jsx    Landing-page header + footer
-    Button.jsx, Input.jsx  Basic form controls
-    primitives.jsx         StatusBadge, Chip, Avatar, EmptyState, ErrorState, SkeletonCard, PageLoader
-    GroupLobbyMap.jsx      Leaflet map: pickup, destination and live rider pins
-    Icons.jsx, Logo.jsx, SectionHeading.jsx, Toaster.jsx
-  pages/                   One component per route (see below)
-  hooks/
-    useRequireAuth.js      Redirects to /login when there's no session
-  lib/
-    api.js                 fetch wrapper + all REST calls
-    websocket.js           STOMP clients for match / chat / location / group events
-    session.js             Token + user info in sessionStorage
-    config.js              Reads VITE_API_URL / VITE_WS_URL
-    toast.js               Tiny pub/sub used by <Toaster />
-    locations.js           Pickup hubs and destinations shown on the Join page
-    hubCoordinates.js      Lat/lng for those places (used by the map)
-    utils.js               initialsOf(), escapeHtml()
+  main.jsx                React starts here (BrowserRouter + App)
+  App.jsx                 All routes. Login-only pages are wrapped in <RequireAuth>
+  styles.css              All styles (colours at the top in :root)
+  pages/                  One file per screen
+    HomePage.jsx          Landing page: hero + fare example, how it works, FAQ
+    LoginPage.jsx         Login form
+    SignupPage.jsx        Signup form (logs in automatically after signup)
+    DashboardPage.jsx     "Current ride" card + quick links
+    JoinPage.jsx          Pick metro station + office -> POST /api/join
+    MyRidesPage.jsx       All my rides, live refresh, cancel a waiting request
+    GroupLobbyPage.jsx    One group: start/end ride, leave group, chat, map
+    NotFoundPage.jsx      404
+  components/             Reusable pieces
+    AppShell.jsx          Logged-in layout (sidebar on desktop, bottom nav on phone)
+    AuthShell.jsx         Login/Signup layout
+    MarketingLayout.jsx   Home page header + footer
+    RequireAuth.jsx       Sends logged-out users to /login
+    LobbyMembers.jsx      The 3 group members (display only)
+    LobbyChat.jsx         Chat box (display + input)
+    GroupLobbyMap.jsx     Leaflet map with station, office and live member pins
+    PageHeader.jsx, Button.jsx, Input.jsx, primitives.jsx (badge, avatar, loader…),
+    Icons.jsx, Logo.jsx, Toaster.jsx
+  lib/                    Plain JavaScript helpers (no React)
+    api.js                Every REST call to the backend (one function each)
+    websocket.js          Every WebSocket subscription / send
+    session.js            Token + name + email in sessionStorage
+    config.js             Reads VITE_API_URL / VITE_WS_URL
+    locations.js          Metro stations + offices shown on the Join page
+    hubCoordinates.js     Approximate map positions for those places
+    toast.js, utils.js    Pop-up messages, small helpers
 ```
+
+## How the frontend works
+
+**1. A normal page (REST):**
+
+```
+JoinPage  --joinRide()-->  lib/api.js  --fetch POST /api/join + JWT-->  backend
+          <-- 1 ride (WAITING) or 3 rides (MATCHED) --
+```
+
+- `lib/api.js` adds `Authorization: Bearer <token>` to every call and turns errors into `{ status, data.message }`.
+- If the token has expired (401), it logs you out and opens `/login?sessionExpired=1`.
+
+**2. Login:** `LoginPage` → `login()` → the backend returns `{ token, fullName, email }` → `setSession()` saves it in `sessionStorage` → `RequireAuth` now lets you into the logged-in pages.
+
+**3. Live updates (WebSocket):**
+
+| Page        | Subscribes to               | What happens                                                                                |
+| ----------- | --------------------------- | ------------------------------------------------------------------------------------------- |
+| My rides    | `/topic/match`              | Any group formed → reload the list. If the socket fails, reload every 5 s instead.          |
+| Group lobby | `/topic/chat/{groupId}`     | New chat message is added to the list                                                       |
+| Group lobby | `/topic/location/{groupId}` | A member's pin moves on the map                                                             |
+| Group lobby | `/topic/group/{groupId}`    | `STARTED` / `COMPLETED` → reload the group. `DISSOLVED` → someone left, go back to My rides |
+
+The lobby **sends** to `/app/chat/{groupId}` (`{ message }`) and `/app/location/{groupId}` (`{ latitude, longitude }`, every 5 s while sharing).
+
+**4. Ride lifecycle on screen:**
+`WAITING` (Cancel request; expires after 15 min) → `MATCHED` (lobby: Start ride / Leave group) → `IN_PROGRESS` (End ride) → `COMPLETED` (chat still readable).
 
 ## Routes
 
-| Path | Page | Login required |
-|---|---|---|
-| `/` | `HomePage` — landing page | No |
-| `/login` | `LoginPage` | No |
-| `/signup` | `SignupPage` (signs up, then logs in) | No |
-| `/dashboard` | `DashboardPage` — overview + quick actions | Yes |
-| `/join` | `JoinPage` — pick a pickup hub and destination | Yes |
-| `/rides` | `MyRidesPage` — your rides; refreshes live when a group forms | Yes |
-| `/rides/:groupId` | `GroupLobbyPage` — group chat, live map, start / end / cancel ride | Yes |
-| `*` | `NotFoundPage` | No |
+| Path                | Page          | Login |
+| ------------------- | ------------- | ----- |
+| `/`                 | Home          | –     |
+| `/login`, `/signup` | Login, Signup | –     |
+| `/dashboard`        | Dashboard     | ✔     |
+| `/join`             | Join a ride   | ✔     |
+| `/rides`            | My rides      | ✔     |
+| `/rides/:groupId`   | Group lobby   | ✔     |
+| `*`                 | 404           | –     |
 
-## Backend contract
+## Interview talking points
 
-### REST (`src/lib/api.js`)
+1. **Simple structure:** pages (screens) → components (UI pieces) → lib (API/WebSocket helpers). All backend calls live in **one file**, `api.js`.
+2. **Auth:** JWT stored in `sessionStorage`, sent on every request; the `<RequireAuth>` wrapper protects pages; a 401 logs you out.
+3. **Real-time:** STOMP over WebSocket for chat, location and group events. On My rides, polling every 5 s is the backup if the socket fails.
+4. **State with basic hooks only:** `useState` for data, `useEffect` to load data and open/close the WebSocket (with cleanup), `useRef` for values that shouldn't re-render (WebSocket client, timer id).
+5. **Small trick worth explaining:** My rides reloads by adding 1 to a `refreshCount` state, which re-runs the loading effect.
+6. **Security detail:** names are escaped before they go into Leaflet tooltips (Leaflet renders HTML), to prevent XSS.
+7. **Styling:** plain CSS with colour variables in `:root`, mobile-first with two breakpoints (768 px, 1024 px).
 
-The JWT is sent as `Authorization: Bearer <token>` on every call except `/api/auth/*`. A `401` clears the session and sends the user to `/login?sessionExpired=1`.
+## Notes / limitations
 
-| Method | Path | Used for |
-|---|---|---|
-| POST | `/api/auth/signup` | Create account `{ fullName, email, password }` |
-| POST | `/api/auth/login` | Log in `{ email, password }` → `{ token, fullName, email }` |
-| POST | `/api/join` | Request a ride `{ pickupHub, destination }` |
-| GET | `/api/my-rides` | List the current user's rides |
-| PATCH | `/api/rides/{rideId}/cancel` | Cancel a waiting ride |
-| GET | `/api/groups/{groupId}` | Group details and members |
-| GET | `/api/chat/{groupId}` | Chat history |
-| PATCH | `/api/rides/{groupId}/start` | Start the ride |
-| PATCH | `/api/rides/{groupId}/end` | End the ride |
-| PATCH | `/api/rides/{groupId}/cancel-group` | Cancel the ride for the whole group |
-
-Errors are read from `{ message }` or `{ fieldErrors: { field: message } }`.
-
-### WebSocket (`src/lib/websocket.js`)
-
-The client connects with SockJS to `VITE_WS_URL` and sends the JWT in the STOMP CONNECT headers. It reconnects every 5 s and sends heartbeats every 10 s.
-
-| Direction | Destination | Payload / meaning |
-|---|---|---|
-| Subscribe | `/topic/match` | A group was formed. My Rides reloads (and falls back to 5 s polling if the socket fails). |
-| Subscribe | `/topic/chat/{groupId}` | New chat message |
-| Subscribe | `/topic/location/{groupId}` | `{ userName, latitude, longitude }` |
-| Subscribe | `/topic/group/{groupId}` | `{ type: "STARTED" \| "COMPLETED" \| "DISSOLVED", message }` |
-| Send | `/app/chat/{groupId}` | `{ message }` |
-| Send | `/app/location/{groupId}` | `{ latitude, longitude }` |
-
-## Notes
-
-- The session is kept in `sessionStorage`, so it ends when the tab closes.
-- Text from users (names, place names) is escaped before it goes into Leaflet tooltips and markers, because Leaflet renders those strings as HTML.
-- `node_modules` contains platform-specific binaries. Run `npm ci` again after moving the project to a different OS.
-- See `AUDIT_REPORT.md` for the stack audit and the changes made from it.
+- Metro stations are the Purple, Green and Yellow line stations near office areas. Pink line stations can be added in `lib/locations.js` + `lib/hubCoordinates.js`.
+- Map positions are approximate (only used to place pins).
+- Chat "is this my message?" is decided by **name**, because the backend's chat message only carries the sender's name.
+- `node_modules` has OS-specific files. Run `npm ci` again after moving the project to another OS.
