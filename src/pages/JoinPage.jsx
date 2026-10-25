@@ -3,9 +3,10 @@ import { Link, useNavigate } from "react-router-dom";
 import { AppShell } from "../components/AppShell";
 import { PageHeader } from "../components/PageHeader";
 import { Button } from "../components/Button";
-import { joinRide, apiErrorMessage } from "../lib/api";
+import { joinRide, parseRide, apiErrorMessage } from "../lib/api";
 import { toast } from "../lib/toast";
-import { METRO_STATIONS, DESTINATIONS } from "../lib/locations";
+import { Input } from "../components/Input";
+import { METRO_STATIONS, DESTINATIONS, findLocation } from "../lib/locations";
 
 // Join a ride: pick a metro station + office and send it to POST /api/join.
 // The backend answers with either:
@@ -18,6 +19,47 @@ export function JoinPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [hasOpenRide, setHasOpenRide] = useState(false);
+
+  // AI helper: the user types a sentence and we fill the two dropdowns for them
+  const [aiText, setAiText] = useState("");
+  const [isParsing, setIsParsing] = useState(false);
+  const [aiError, setAiError] = useState("");
+
+  async function handleParse(event) {
+    event.preventDefault();
+    setAiError("");
+    setIsParsing(true);
+
+    try {
+      const result = await parseRide(aiText);
+
+      // Turn the AI's words into names that exist in our dropdowns
+      const foundStation = findLocation(result.pickupHub, METRO_STATIONS);
+      const foundDestination = findLocation(result.destination, DESTINATIONS);
+
+      // Fill whatever we understood; the user can still change it before joining
+      if (foundStation) setStation(foundStation);
+      if (foundDestination) setDestination(foundDestination);
+
+      if (foundStation && foundDestination) {
+        toast.success("Filled in! Check the details and tap Find my group.");
+      } else {
+        setAiError("We couldn't match that to our metro stations and offices. Please pick them below.");
+      }
+    } catch (err) {
+      if (err.status === 429) {
+        setAiError("Too many AI requests. Please wait a minute, or pick your route below.");
+      } else if (err.status === 503) {
+        setAiError("The AI helper is not available right now. Please pick your route below.");
+      } else if (err.status === 400) {
+        setAiError("Please mention both where you start and where you are going.");
+      } else {
+        setAiError(apiErrorMessage(err, "Something went wrong. Please pick your route below."));
+      }
+    } finally {
+      setIsParsing(false);
+    }
+  }
 
   async function handleSubmit(event) {
     event.preventDefault();
@@ -52,6 +94,30 @@ export function JoinPage() {
         title="Join a ride"
         description="You'll be grouped with 2 people going from the same metro station to the same office."
       />
+
+      {/* AI helper: type a sentence, we fill in the form below */}
+      <form onSubmit={handleParse} className="card form narrow ai-box">
+        <div className="field">
+          <label htmlFor="ai-text" className="label">
+            Describe your ride (optional)
+          </label>
+          <Input
+            id="ai-text"
+            value={aiText}
+            onChange={(e) => setAiText(e.target.value)}
+            placeholder="e.g. Hoodi to ITPL at 9am"
+            maxLength={200}
+          />
+        </div>
+        {aiError ? (
+          <p role="alert" className="alert">
+            {aiError}
+          </p>
+        ) : null}
+        <Button type="submit" disabled={!aiText.trim() || isParsing}>
+          {isParsing ? "Reading…" : "Fill with AI"}
+        </Button>
+      </form>
 
       <form onSubmit={handleSubmit} className="card form narrow">
         {error ? (
