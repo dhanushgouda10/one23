@@ -181,6 +181,11 @@ select {
   max-width: 480px;
 }
 
+/* the AI helper box on the Join page sits above the main form */
+.ai-box {
+  margin-bottom: 1rem;
+}
+
 /* ---------- 5. Buttons ---------- */
 .btn {
   display: inline-flex;

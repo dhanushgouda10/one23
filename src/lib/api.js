@@ -75,6 +75,15 @@ export function joinRide(payload) {
   });
 }
 
+// AI Ride Parser: turns a sentence like "Kadugodi to ITPL at 9am" into
+// { pickupHub, destination, time }. Needs login (the token is added by request()).
+export function parseRide(message) {
+  return request("/api/ai/parse-ride", {
+    method: "POST",
+    body: JSON.stringify({ message: message.trim() }),
+  });
+}
+
 export function getMyRides() {
   return request("/api/my-rides");
 }

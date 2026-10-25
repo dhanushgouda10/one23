@@ -39,3 +39,22 @@ export const DESTINATIONS = [
   "Outer Ring Road",
   "MG Road",
 ];
+
+// The AI answers with free text (e.g. "Kadugodi"), but the Join page only accepts
+// names from the lists above (e.g. "Whitefield (Kadugodi)").
+// This finds the list item that matches the text, or returns "" if nothing matches.
+export function findLocation(text, list) {
+  const wanted = (text || "").trim().toLowerCase();
+  if (!wanted) return "";
+
+  // 1. exact match, ignoring upper/lower case
+  const exact = list.find((name) => name.toLowerCase() === wanted);
+  if (exact) return exact;
+
+  // 2. one name contains the other ("Kadugodi" is inside "Whitefield (Kadugodi)")
+  const partial = list.find((name) => {
+    const lower = name.toLowerCase();
+    return lower.includes(wanted) || wanted.includes(lower);
+  });
+  return partial || "";
+}
